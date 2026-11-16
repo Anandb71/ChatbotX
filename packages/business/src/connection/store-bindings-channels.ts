@@ -14,6 +14,7 @@ import {
   integrationGoogleSheetsModel,
   integrationInstagramModel,
   integrationKlaviyoModel,
+  integrationLineModel,
   integrationMailchimpModel,
   integrationMailerLiteModel,
   integrationMessengerModel,
@@ -342,6 +343,22 @@ export const buildConnectionStoreBindings = (
     identityColumn: "id",
     onDisconnect: "keep_row",
     configColumns: ["fromAddress"],
+  }),
+  line: makeChannelBinding({
+    table: integrationLineModel,
+    tableName: "IntegrationLine",
+    identityColumn: "channelId",
+    onDisconnect: "keep_row",
+    duplicateConstraint: "IntegrationLine_channelId_key",
+    // NOT NULL bot identity columns come from the validated auth, never from
+    // a client `config` (see `makeChannelBinding.valuesFromAuth`).
+    valuesFromAuth: (auth) => {
+      const metadata = (auth as { metadata?: Record<string, unknown> }).metadata
+      return {
+        botUserId: metadata?.botUserId,
+        basicId: metadata?.basicId,
+      }
+    },
   }),
   telegram: makeChannelBinding({
     table: integrationTelegramModel,

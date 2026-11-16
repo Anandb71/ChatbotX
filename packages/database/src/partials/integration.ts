@@ -17,6 +17,7 @@ export const integrationTypes = z.enum([
   "googleSheets",
   "instagram",
   "instagramFacebook",
+  "line",
   "threads",
   "mailchimp",
   "mailerLite",
