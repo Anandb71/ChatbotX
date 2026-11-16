@@ -1,13 +1,26 @@
 import { describe, expect, test } from "vitest"
 import { AIAnalyzeImageDefaultFn } from "../src/steps/ai-analyze-image"
+import { aiEditImageDefaultFn } from "../src/steps/ai-edit-image"
 import {
   aiExtractDataDefaultFn,
   aiExtractDataModels,
 } from "../src/steps/ai-extract-data"
+import { aiGenerateImageDefaultFn } from "../src/steps/ai-generate-image"
 import { aiGenerateTextDefaultFn } from "../src/steps/ai-generate-text"
 import { AISpeechToTextDefaultFn } from "../src/steps/ai-speech-to-text"
 
 describe("AI extract data model catalog", () => {
+  test("uses current OpenAI image defaults and preserves explicit selections", () => {
+    expect(aiGenerateImageDefaultFn().model).toBe("gpt-image-2.6-flare")
+    expect(aiEditImageDefaultFn().model).toBe("gpt-image-2.6-sunburst")
+    expect(aiGenerateImageDefaultFn({ model: "custom-image" }).model).toBe(
+      "custom-image",
+    )
+    expect(aiEditImageDefaultFn({ model: "custom-image" }).model).toBe(
+      "custom-image",
+    )
+  })
+
   test("keeps defaults inside provider model lists", () => {
     for (const provider of Object.values(aiExtractDataModels)) {
       expect(provider.models).toContain(provider.default)

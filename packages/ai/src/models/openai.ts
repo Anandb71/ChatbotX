@@ -195,6 +195,8 @@ export const openaiModelOptions: { label: string; value: OpenAIModel }[] = [
 ]
 
 export const openaiImageModels = z.enum([
+  "gpt-image-2.6-sunburst",
+  "gpt-image-2.6-flare",
   "gpt-image-2.5-sunburst",
   "gpt-image-2.5-flare",
   "gpt-image-2",
@@ -208,6 +210,14 @@ export const openaiImageModelOptions: {
   label: string
   value: OpenAIImageModel
 }[] = [
+  {
+    label: "GPT Image 2.6 Sunburst",
+    value: openaiImageModels.enum["gpt-image-2.6-sunburst"],
+  },
+  {
+    label: "GPT Image 2.6 Flare",
+    value: openaiImageModels.enum["gpt-image-2.6-flare"],
+  },
   {
     label: "GPT Image 2.5 Sunburst",
     value: openaiImageModels.enum["gpt-image-2.5-sunburst"],

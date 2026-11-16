@@ -32,7 +32,7 @@ export const IMAGE_DEFAULT_EXTENSION = "png" as const
 export const IMAGE_DEFAULT_MIME_TYPE = "image/png" as const
 
 export const defaultModels = {
-  openai: "gpt-image-2",
+  openai: "gpt-image-2.6-flare",
   gemini: "gemini-3.1-flash-image",
   muse: "muse-image-1.0",
 } as const

@@ -172,7 +172,12 @@ describe("AI model catalog", () => {
       auth: { authType: "secretText", secretText: "test-key" },
     } as Parameters<typeof createAIImageModelInstance>[0]["model"]
 
-    for (const modelId of ["gpt-image-2.5-sunburst", "gpt-image-2.5-flare"]) {
+    for (const modelId of [
+      "gpt-image-2.6-sunburst",
+      "gpt-image-2.6-flare",
+      "gpt-image-2.5-sunburst",
+      "gpt-image-2.5-flare",
+    ]) {
       expect(() =>
         createAIImageModelInstance({
           model: integration,
