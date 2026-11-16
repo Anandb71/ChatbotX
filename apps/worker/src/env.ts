@@ -13,6 +13,8 @@ export const env = createEnv({
   server: {
     NEXT_PUBLIC_EDITION: editionRule,
     QUOTA_SYNC_INTERVAL_SECONDS: z.coerce.number().int().min(10).default(60),
+    // Contact sync from AhaChat (docs/contact-sync.md): https origin, no credentials.
+    AHACHAT_API_BASE_URL: z.url({ protocol: /^https$/ }).optional(),
     // How often the sequence producer polls each of its buckets. Idle Redis
     // cost is `buckets x 2 x 1000 / interval` ZRANGEBYSCORE per second (256
     // buckets: ~102/s at 5000ms). Without backlog a due dispatch waits up to

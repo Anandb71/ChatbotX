@@ -270,6 +270,13 @@ export type WhatsappMessageTemplateModel =
   typeof schema.whatsappMessageTemplateModel.$inferSelect
 export type AiHandoverBulkRunModel =
   typeof schema.aiHandoverBulkRunModel.$inferSelect
+export type IntegrationAhachatModel =
+  typeof schema.integrationAhachatModel.$inferSelect
+export type ContactSyncRunModel = typeof schema.contactSyncRunModel.$inferSelect
+export type ContactSyncRunItemModel =
+  typeof schema.contactSyncRunItemModel.$inferSelect
+export type ContactSyncMappingModel =
+  typeof schema.contactSyncMappingModel.$inferSelect
 export type AiHandoverSettingsModel =
   typeof schema.aiHandoverSettingsModel.$inferSelect
 export type MessengerMessageTemplateModel =

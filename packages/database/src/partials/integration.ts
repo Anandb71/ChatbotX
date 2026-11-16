@@ -2,6 +2,7 @@ import { z } from "zod"
 
 export const integrationTypes = z.enum([
   "activeCampaign",
+  "ahachat",
   "api",
   "chatbotx",
   "claude",

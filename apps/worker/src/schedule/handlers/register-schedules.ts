@@ -47,6 +47,7 @@ const EVERY_MINUTE_SECOND_OFFSETS = {
   scanCoexistRuns: 28,
   scanContactScans: 32,
   scanAiHandoverBulkRuns: 36,
+  scanContactSyncRuns: 38,
   finalizeBroadcasts: 40,
   finalizeMarketingMessages: 44,
   reconcileMetaCatalogSyncs: 48,
@@ -404,6 +405,20 @@ export const registerSchedules = async () => {
       name: ScheduleJobData.scanContactScans,
       data: {
         type: ScheduleJobData.scanContactScans,
+        data: {},
+      },
+    },
+  )
+
+  await scheduleQueue.upsertJobScheduler(
+    ScheduleJobData.scanContactSyncRuns,
+    {
+      pattern: everyMinuteAtOffset(ScheduleJobData.scanContactSyncRuns),
+    },
+    {
+      name: ScheduleJobData.scanContactSyncRuns,
+      data: {
+        type: ScheduleJobData.scanContactSyncRuns,
         data: {},
       },
     },

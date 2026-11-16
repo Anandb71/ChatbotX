@@ -46,6 +46,7 @@ import { contactsOnBroadcastsRelations } from "./contact-on-broadcast"
 import { contactsOnSequenceRelations } from "./contact-on-sequence"
 import { contactOnSmartDelayRelations } from "./contact-on-smart-delay"
 import { contactReferralEventRelations } from "./contact-referral-event"
+import { contactSyncRelations } from "./contact-sync"
 import { contactsToTagsRelations } from "./contact-to-tag"
 import { contactToTagChannelRelations } from "./contact-to-tag-channel"
 import { conversationRelations } from "./conversation"
@@ -93,6 +94,7 @@ import { inboxTeamRelations } from "./inbox-team"
 import { inboxTeamMemberRelations } from "./inbox-team-member"
 import { integrationRelations } from "./integration"
 import { integrationActiveCampaignRelations } from "./integration-active-campaign"
+import { integrationAhachatRelations } from "./integration-ahachat"
 import { integrationApiRelations } from "./integration-api"
 import { integrationClaudeRelations } from "./integration-claude"
 import { integrationDeepseekRelations } from "./integration-deepseek"
@@ -195,6 +197,8 @@ import { workspaceMemberRelations } from "./workspace-member"
 
 export const relations = {
   ...integrationApiRelations,
+  ...integrationAhachatRelations,
+  ...contactSyncRelations,
   ...connectionRelations,
   ...connectSessionRelations,
   ...adsConversionEventRelations,

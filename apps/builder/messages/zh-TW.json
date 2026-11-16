@@ -12002,5 +12002,96 @@
       "description": "Deletes your account and the {count, plural, =0 {0 workspaces} one {# workspace} other {# workspaces}} you own.",
       "openSettings": "Delete account"
     }
+  },
+  "ahachat": {
+    "title": "AhaChat",
+    "connect": {
+      "label": "AhaChat pages",
+      "description": "Add the broadcast API token of each AhaChat page (Bot settings › General) to sync its contacts here. Add one token at a time."
+    },
+    "empty": "No AhaChat page connected yet.",
+    "addToken": "Add AhaChat token",
+    "tokenHint": "Paste the broadcast API token of one AhaChat page. The page is looked up and shown in the list.",
+    "fields": {
+      "token": "Broadcast API token"
+    },
+    "errors": {
+      "tokenInvalid": "This token is not valid in AhaChat.",
+      "alreadyConnected": "This AhaChat page is already connected.",
+      "unreachable": "AhaChat could not be reached. Try again later."
+    }
+  },
+  "contactSync": {
+    "menu": "Sync with AhaChat",
+    "title": "Sync with AhaChat",
+    "description": "Import contacts, tags and custom fields from your AhaChat pages. Nothing imported runs a trigger, flow or webhook.",
+    "start": "Start sync",
+    "empty": "Connect an AhaChat page in the integration settings first.",
+    "goToSettings": "Open AhaChat settings",
+    "cooldown": "Contacts can be synced once every 4 hours. Next sync from {time}.",
+    "options": {
+      "syncTags": "Sync tags",
+      "syncCustomFields": "Sync custom fields",
+      "overwriteExisting": "Overwrite existing data",
+      "hint": "When overwrite is off, existing contacts only get the data they are missing. Empty AhaChat values never clear data, and tags are only added."
+    },
+    "advanced": {
+      "show": "Advanced: map tags and custom fields",
+      "hide": "Hide advanced"
+    },
+    "source": {
+      "chooseInbox": "Choose the inbox to import into"
+    },
+    "mapping": {
+      "auto": "Automatic (match by name)",
+      "saved": "Mappings saved",
+      "tags": "Tags",
+      "fields": "Custom fields",
+      "noTags": "This page has no tags.",
+      "noFields": "This page has no custom fields.",
+      "typeMismatch": "The mapped field has a different type: its values will be skipped.",
+      "save": "Save mappings"
+    },
+    "progress": {
+      "title": "Sync progress",
+      "source": "Source",
+      "counts": "{created} created · {updated} updated · {skipped} skipped · {failed} failed",
+      "skippedValues": "已略過 {count} 個自訂欄位值（類型不相容或值無效）",
+      "cancel": "Cancel sync",
+      "done": "Done"
+    },
+    "ineligible": {
+      "channelUnsupported": "Channel not supported",
+      "noMatchingInbox": "No matching inbox connected",
+      "connectionUnhealthy": "Token needs to be added again"
+    },
+    "status": {
+      "pending": "Waiting",
+      "running": "Running",
+      "cancelling": "Cancelling",
+      "succeeded": "Completed",
+      "partial": "Partly completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "runErrors": {
+      "tokenInvalid": "The AhaChat token is no longer valid.",
+      "inboxUnavailable": "The inbox was disconnected.",
+      "sourceUnavailable": "AhaChat returned unexpected data.",
+      "sourceDisconnected": "The AhaChat page was removed.",
+      "pageLimitReached": "Stopped at the per-page limit.",
+      "maxAttempts": "Stopped after repeated failures."
+    },
+    "errors": {
+      "alreadyRunning": "A sync is already running in this workspace.",
+      "cooldown": "Contacts can be synced once every 4 hours.",
+      "noSources": "Choose at least one page.",
+      "tooManySources": "Too many pages in one sync.",
+      "sourceNotEligible": "One of the pages cannot be synced.",
+      "inboxRequired": "Choose the inbox for each page that matches several.",
+      "mappingInvalid": "Some mappings are invalid.",
+      "forbidden": "You do not have permission to sync contacts.",
+      "generic": "Something went wrong. Try again."
+    }
   }
 }

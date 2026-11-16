@@ -41,6 +41,7 @@ import type { ResolvedFlowFile } from "./flow-response-files"
 export * from "./ai-handover-bulk-job-ids"
 export * from "./coexist-job-ids"
 export * from "./contact-scan-job-ids"
+export * from "./contact-sync-job-ids"
 export * from "./flow-response-files"
 
 export const IntegrationJobAction = {
@@ -114,6 +115,8 @@ export const IntegrationJobAction = {
   threadControlAction: "threadControlAction",
   aiHandoverTakeBack: "aiHandoverTakeBack",
   aiHandoverBulkToggle: "aiHandoverBulkToggle",
+  // One budgeted chunk of a contact sync from an external system.
+  contactSync: "contactSync",
   // Follow/unfollow, group join/leave, group messages and the bot's own group
   // membership — audience events that are not 1:1 messages (leaderboard scoring).
   channelAudienceEvent: "channelAudienceEvent",
@@ -1405,6 +1408,19 @@ export type IntegrationJobAiHandoverBulkToggle = {
 }
 
 /**
+ * Runs one budgeted chunk of a contact sync run. Only `runId`/`workspaceId`
+ * travel: sources, options and cursors are read off the claimed run row, so a
+ * stale or forged job cannot steer the engine.
+ */
+export type IntegrationJobContactSync = {
+  type: typeof IntegrationJobAction.contactSync
+  data: {
+    runId: string
+    workspaceId: string
+  }
+}
+
+/**
  * One conversation-routing webhook item (handover, standby message or echo).
  * The channel decides what `payload` means; the worker only forwards it.
  * Same data shape as {@link IntegrationJobReceiveMessage}.
@@ -1532,6 +1548,7 @@ export type IntegrationJobData =
   | IntegrationJobThreadControlAction
   | IntegrationJobAiHandoverTakeBack
   | IntegrationJobAiHandoverBulkToggle
+  | IntegrationJobContactSync
   | IntegrationJobChannelAudienceEvent
 
 export const integrationQueue = isNoRedisEnv()

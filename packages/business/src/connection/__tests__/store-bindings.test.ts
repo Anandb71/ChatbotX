@@ -48,6 +48,10 @@ const makeTx = () => {
 
 const auth = { authType: "secretText", secretText: "secret" } as const
 
+/** The first argument of a mock's latest call. */
+const lastCallArgument = (mock: { mock: { calls: unknown[][] } }) =>
+  (mock.mock.calls.at(-1)?.[0] ?? {}) as Record<string, unknown>
+
 const bindingOrThrow = (provider: keyof typeof CONNECTION_STORE_BINDINGS) => {
   const binding = CONNECTION_STORE_BINDINGS[provider]
   if (!binding) {
@@ -219,6 +223,127 @@ describe("CONNECTION_STORE_BINDINGS", () => {
     expect(fixture.insertValues).not.toHaveBeenLastCalledWith(
       expect.objectContaining({ integrationId: "attacker-integration" }),
     )
+  })
+
+  describe("ahachat (authCodec)", () => {
+    const ahachatAuth = {
+      authType: "custom",
+      token: "broadcast-token-secret",
+      page: {
+        id: "1122334455",
+        channel: "messenger",
+        name: "My Shop",
+        avatarUrl: null,
+      },
+    } as const
+
+    const insertAhachat = async (fixture: ReturnType<typeof makeTx>) => {
+      await bindingOrThrow("ahachat").insertRow(
+        {
+          kind: "integration",
+          workspaceId: "workspace-1",
+          auth: ahachatAuth,
+          descriptor: {
+            sourceId: "messenger:1122334455",
+            displayName: "My Shop",
+          },
+          config: { encryptedAuth: "attacker", sourceAccountId: "attacker" },
+        },
+        fixture.tx as never,
+      )
+      return lastCallArgument(fixture.insertValues)
+    }
+
+    it("stores the token encrypted, with the page snapshot in its own columns", async () => {
+      const values = await insertAhachat(makeTx())
+
+      expect(values).not.toHaveProperty("auth")
+      expect(JSON.stringify(values.encryptedAuth)).not.toContain(
+        ahachatAuth.token,
+      )
+      expect(values).toMatchObject({
+        workspaceId: "workspace-1",
+        integrationId: "integration-1",
+        sourceChannel: "messenger",
+        sourceAccountId: "1122334455",
+        sourceAccountName: "My Shop",
+        sourceAvatarUrl: null,
+      })
+    })
+
+    it("decrypts what it stored for the same workspace", async () => {
+      const values = await insertAhachat(makeTx())
+      const fixture = makeTx()
+      fixture.loadLimit.mockResolvedValue([{ auth: values.encryptedAuth }])
+
+      await expect(
+        bindingOrThrow("ahachat").loadAuthByForeignKey(
+          "integration-1",
+          "workspace-1",
+          fixture.tx as never,
+        ),
+      ).resolves.toEqual(ahachatAuth)
+    })
+
+    it("refuses a ciphertext copied to another workspace without revealing it", async () => {
+      const values = await insertAhachat(makeTx())
+      const fixture = makeTx()
+      fixture.loadLimit.mockResolvedValue([{ auth: values.encryptedAuth }])
+
+      const error = await bindingOrThrow("ahachat")
+        .loadAuthByForeignKey(
+          "integration-1",
+          "workspace-2",
+          fixture.tx as never,
+        )
+        .catch((caught: unknown) => caught)
+
+      expect(error).toMatchObject({ code: "ahachatCredentialsUnreadable" })
+      expect(String((error as Error).message)).not.toContain(ahachatAuth.token)
+    })
+
+    it("refuses a plain (unencrypted) auth value", async () => {
+      const fixture = makeTx()
+      fixture.loadLimit.mockResolvedValue([{ auth: ahachatAuth }])
+
+      await expect(
+        bindingOrThrow("ahachat").loadAuthByForeignKey(
+          "integration-1",
+          "workspace-1",
+          fixture.tx as never,
+        ),
+      ).rejects.toMatchObject({ code: "ahachatCredentialsUnreadable" })
+    })
+
+    it("re-encrypts a refreshed token", async () => {
+      const fixture = makeTx()
+
+      await bindingOrThrow("ahachat").saveAuthByForeignKey(
+        "integration-1",
+        "workspace-1",
+        { ...ahachatAuth, token: "rotated-token" },
+        undefined,
+        fixture.tx as never,
+      )
+
+      const set = lastCallArgument(fixture.updateSet)
+      expect(set).toHaveProperty("encryptedAuth")
+      expect(JSON.stringify(set)).not.toContain("rotated-token")
+    })
+
+    it("leaves bindings without a codec storing auth as is", async () => {
+      const fixture = makeTx()
+
+      await bindingOrThrow("sendGrid").saveAuthByForeignKey(
+        "integration-1",
+        "workspace-1",
+        auth,
+        undefined,
+        fixture.tx as never,
+      )
+
+      expect(fixture.updateSet).toHaveBeenLastCalledWith({ auth })
+    })
   })
 
   it("has no duplicateConstraint for Zalo — IntegrationZalo.oaId has no unique constraint in the DB today, unlike every other channel identity column (store-bindings.ts's zalo comment, backfill-connections.ts's duplicate_source_inbox report)", () => {

@@ -12002,5 +12002,96 @@
       "description": "Deletes your account and the {count, plural, =0 {0 workspaces} one {# workspace} other {# workspaces}} you own.",
       "openSettings": "Delete account"
     }
+  },
+  "ahachat": {
+    "title": "AhaChat",
+    "connect": {
+      "label": "Trang AhaChat",
+      "description": "Thêm broadcast API token của từng trang AhaChat (Cài đặt bot › Chung) để đồng bộ khách hàng về đây. Mỗi lần thêm một token."
+    },
+    "empty": "Chưa kết nối trang AhaChat nào.",
+    "addToken": "Thêm token AhaChat",
+    "tokenHint": "Dán broadcast API token của một trang AhaChat. Hệ thống sẽ tìm trang và hiển thị trong danh sách.",
+    "fields": {
+      "token": "Broadcast API token"
+    },
+    "errors": {
+      "tokenInvalid": "Token này không hợp lệ trên AhaChat.",
+      "alreadyConnected": "Trang AhaChat này đã được kết nối.",
+      "unreachable": "Không kết nối được AhaChat. Vui lòng thử lại sau."
+    }
+  },
+  "contactSync": {
+    "menu": "Đồng bộ với AhaChat",
+    "title": "Đồng bộ với AhaChat",
+    "description": "Nhập khách hàng, tag và custom field từ các trang AhaChat. Dữ liệu được nhập không chạy trigger, flow hay webhook.",
+    "start": "Bắt đầu đồng bộ",
+    "empty": "Hãy kết nối trang AhaChat trong phần cài đặt tích hợp trước.",
+    "goToSettings": "Mở cài đặt AhaChat",
+    "cooldown": "Mỗi 4 giờ chỉ được đồng bộ một lần. Lần tiếp theo từ {time}.",
+    "options": {
+      "syncTags": "Đồng bộ tag",
+      "syncCustomFields": "Đồng bộ custom field",
+      "overwriteExisting": "Ghi đè dữ liệu hiện có",
+      "hint": "Khi tắt ghi đè, khách hàng đã có chỉ được bổ sung dữ liệu còn thiếu. Giá trị trống từ AhaChat không xoá dữ liệu, tag chỉ được thêm vào."
+    },
+    "advanced": {
+      "show": "Nâng cao: ánh xạ tag và custom field",
+      "hide": "Ẩn nâng cao"
+    },
+    "source": {
+      "chooseInbox": "Chọn hộp thư để nhập vào"
+    },
+    "mapping": {
+      "auto": "Tự động (khớp theo tên)",
+      "saved": "Đã lưu ánh xạ",
+      "tags": "Tag",
+      "fields": "Custom field",
+      "noTags": "Trang này không có tag.",
+      "noFields": "Trang này không có custom field.",
+      "typeMismatch": "Field đã ánh xạ khác kiểu dữ liệu: giá trị của nó sẽ bị bỏ qua.",
+      "save": "Lưu ánh xạ"
+    },
+    "progress": {
+      "title": "Tiến độ đồng bộ",
+      "source": "Nguồn",
+      "counts": "{created} tạo mới · {updated} cập nhật · {skipped} bỏ qua · {failed} lỗi",
+      "skippedValues": "{count} giá trị custom field bị bỏ qua (khác kiểu hoặc không hợp lệ)",
+      "cancel": "Huỷ đồng bộ",
+      "done": "Xong"
+    },
+    "ineligible": {
+      "channelUnsupported": "Kênh chưa được hỗ trợ",
+      "noMatchingInbox": "Chưa kết nối hộp thư tương ứng",
+      "connectionUnhealthy": "Cần thêm lại token"
+    },
+    "status": {
+      "pending": "Đang chờ",
+      "running": "Đang chạy",
+      "cancelling": "Đang huỷ",
+      "succeeded": "Hoàn tất",
+      "partial": "Hoàn tất một phần",
+      "failed": "Thất bại",
+      "cancelled": "Đã huỷ"
+    },
+    "runErrors": {
+      "tokenInvalid": "Token AhaChat không còn hợp lệ.",
+      "inboxUnavailable": "Hộp thư đã bị ngắt kết nối.",
+      "sourceUnavailable": "AhaChat trả về dữ liệu không đúng.",
+      "sourceDisconnected": "Trang AhaChat đã bị gỡ.",
+      "pageLimitReached": "Đã dừng ở giới hạn của trang.",
+      "maxAttempts": "Đã dừng sau nhiều lần lỗi."
+    },
+    "errors": {
+      "alreadyRunning": "Workspace đang có một lượt đồng bộ chạy.",
+      "cooldown": "Mỗi 4 giờ chỉ được đồng bộ một lần.",
+      "noSources": "Hãy chọn ít nhất một trang.",
+      "tooManySources": "Quá nhiều trang trong một lượt đồng bộ.",
+      "sourceNotEligible": "Có trang không thể đồng bộ.",
+      "inboxRequired": "Hãy chọn hộp thư cho trang khớp nhiều hộp thư.",
+      "mappingInvalid": "Một số ánh xạ không hợp lệ.",
+      "forbidden": "Bạn không có quyền đồng bộ khách hàng.",
+      "generic": "Đã có lỗi xảy ra. Vui lòng thử lại."
+    }
   }
 }

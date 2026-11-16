@@ -18,6 +18,8 @@ export const env = createEnv({
     BETTER_AUTH_URL: z.url(),
     LICENSE_KEY: z.string().optional(),
     WHATSAPP_OVERRIDE_CALLBACK_URI: z.url().optional(),
+    // Contact sync from AhaChat (docs/contact-sync.md): https origin, no credentials.
+    AHACHAT_API_BASE_URL: z.url({ protocol: /^https$/ }).optional(),
     // WhatsApp VoIP calling (docs/whatsapp-calling.md) ICE/TURN relay.
     TURN_URL: z.string().optional(),
     TURN_STATIC_SECRET: z.string().optional(),

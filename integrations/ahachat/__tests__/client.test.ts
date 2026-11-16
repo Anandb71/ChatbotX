@@ -1,0 +1,303 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
+import { getAhachatPage, listAhachatContacts } from "../src/apis"
+import { resolveAhachatApiBaseUrl } from "../src/client"
+import { AHACHAT_API_BASE_URL_ENV } from "../src/constants"
+import { AhachatApiError } from "../src/error"
+
+const TOKEN = "broadcast-token-secret"
+
+const pageData = {
+  id: "1122334455",
+  channel: "messenger",
+  name: "My Shop",
+  avatar: "https://cdn.example.com/page.jpg",
+  link: "https://www.facebook.com/1122334455",
+  connected_page_id: null,
+  latest_user_id: "99",
+}
+
+const jsonResponse = (body: unknown, init: ResponseInit = {}) =>
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+    ...init,
+  })
+
+const stubFetch = (response: () => Response | Promise<Response>) => {
+  const fetchMock = vi.fn(async (_request: Request) => await response())
+  vi.stubGlobal("fetch", fetchMock)
+  return fetchMock
+}
+
+const captureError = async (promise: Promise<unknown>) => {
+  const error = await promise.catch((caught: unknown) => caught)
+  expect(error).toBeInstanceOf(AhachatApiError)
+  return error as AhachatApiError
+}
+
+beforeEach(() => {
+  vi.stubEnv(AHACHAT_API_BASE_URL_ENV, "https://chatbot.example.com/")
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
+})
+
+describe("resolveAhachatApiBaseUrl", () => {
+  test.each([
+    ["unset", ""],
+    ["not a url", "chatbot.example.com"],
+    ["plain http", "http://chatbot.example.com"],
+    ["with credentials", "https://user:pass@chatbot.example.com"],
+  ])("rejects a base url that is %s", (_label, value) => {
+    vi.stubEnv(AHACHAT_API_BASE_URL_ENV, value)
+
+    expect(() => resolveAhachatApiBaseUrl()).toThrow(AhachatApiError)
+  })
+
+  test("normalises the trailing slash", () => {
+    vi.stubEnv(AHACHAT_API_BASE_URL_ENV, "https://chatbot.example.com///")
+
+    expect(resolveAhachatApiBaseUrl()).toBe("https://chatbot.example.com/")
+  })
+})
+
+describe("AhaChat client", () => {
+  test("sends the token as a bearer header, never in the url", async () => {
+    const fetchMock = stubFetch(() => jsonResponse({ data: pageData }))
+
+    const page = await getAhachatPage(TOKEN)
+
+    const request = fetchMock.mock.calls[0]?.[0] as Request
+    expect(request.url).toBe(
+      "https://chatbot.example.com/api/contact-export/page",
+    )
+    expect(request.url).not.toContain(TOKEN)
+    expect(request.headers.get("Authorization")).toBe(`Bearer ${TOKEN}`)
+    expect(page).toEqual({
+      id: "1122334455",
+      channel: "messenger",
+      name: "My Shop",
+      avatarUrl: "https://cdn.example.com/page.jpg",
+      link: "https://www.facebook.com/1122334455",
+      connectedPageId: null,
+      latestUserId: "99",
+    })
+  })
+
+  test.each([
+    [401, "unauthorized"],
+    [403, "unauthorized"],
+    [404, "notFound"],
+    [422, "invalidRequest"],
+    [500, "serverError"],
+    [503, "serverError"],
+  ])("classifies HTTP %i as %s without leaking the body or token", async (status, code) => {
+    stubFetch(() =>
+      jsonResponse({ message: `secret body ${TOKEN}` }, { status }),
+    )
+
+    const error = await captureError(getAhachatPage(TOKEN))
+
+    expect(error.code).toBe(code)
+    expect(error.statusCode).toBe(status)
+    expect(error.message).not.toContain(TOKEN)
+    expect(error.message).not.toContain("secret body")
+  })
+
+  test("reads Retry-After on 429 and does not retry", async () => {
+    const fetchMock = stubFetch(() =>
+      jsonResponse({}, { status: 429, headers: { "Retry-After": "37" } }),
+    )
+
+    const error = await captureError(getAhachatPage(TOKEN))
+
+    expect(error.code).toBe("rateLimited")
+    expect(error.retryAfterSeconds).toBe(37)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  test("refuses to follow a redirect", async () => {
+    stubFetch(() => Response.redirect("https://evil.example.com/", 302))
+
+    expect((await captureError(getAhachatPage(TOKEN))).code).toBe("redirect")
+  })
+
+  test("a body that breaks the contract is an invalid response", async () => {
+    stubFetch(() => jsonResponse({ data: { id: "1", channel: "fax" } }))
+
+    expect((await captureError(getAhachatPage(TOKEN))).code).toBe(
+      "invalidResponse",
+    )
+  })
+
+  test("a network failure is classified, not thrown raw", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new TypeError("fetch failed"))),
+    )
+
+    expect((await captureError(getAhachatPage(TOKEN))).code).toBe("network")
+  })
+
+  test("refuses a response body over the size cap", async () => {
+    stubFetch(
+      () =>
+        new Response("{}", {
+          status: 200,
+          headers: { "Content-Length": String(20 * 1024 * 1024) },
+        }),
+    )
+
+    expect((await captureError(getAhachatPage(TOKEN))).code).toBe(
+      "invalidResponse",
+    )
+  })
+
+  test("stops reading a streamed body as soon as it passes the size cap", async () => {
+    const chunk = new Uint8Array(1024 * 1024)
+    let pulled = 0
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1
+        controller.enqueue(chunk)
+      },
+    })
+    stubFetch(() => new Response(stream, { status: 200 }))
+
+    expect((await captureError(getAhachatPage(TOKEN))).code).toBe(
+      "invalidResponse",
+    )
+    // An endless body is cut just past 10 MB, not read to the end.
+    expect(pulled).toBeLessThan(15)
+  })
+
+  test("an unconfigured base url fails before any request", async () => {
+    vi.stubEnv(AHACHAT_API_BASE_URL_ENV, "")
+    const fetchMock = stubFetch(() => jsonResponse({ data: pageData }))
+
+    expect((await captureError(getAhachatPage(TOKEN))).code).toBe(
+      "notConfigured",
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe("listAhachatContacts", () => {
+  const validContact = {
+    id: "5",
+    platform_user_id: "123",
+    whatsapp_user_id: null,
+    first_name: "An",
+    last_name: null,
+    full_name: "An",
+    gender: "male",
+    locale: "vi_VN",
+    timezone: 7,
+    avatar: null,
+    phone: "0901234567",
+    email: null,
+    ref: null,
+    country: null,
+    state: null,
+    city: null,
+    location: { latitude: 10.8, longitude: 106.7 },
+    is_messaging_contact: true,
+    created_at: "2024-05-01T10:00:00+07:00",
+    tags: [{ id: "4", name: "VIP" }],
+    custom_fields: [
+      { id: "9", value: "hello" },
+      { id: "10", value: true },
+    ],
+  }
+
+  test("passes the cursor bounds and counts rows that break the contract", async () => {
+    const fetchMock = stubFetch(() =>
+      jsonResponse({
+        data: {
+          items: [validContact, { id: "not-a-number" }],
+          next_cursor: "6",
+          has_more: true,
+        },
+      }),
+    )
+
+    const page = await listAhachatContacts(
+      { token: TOKEN },
+      { afterId: "4", untilId: "99", limit: 2 },
+    )
+
+    const url = new URL((fetchMock.mock.calls[0]?.[0] as Request).url)
+    expect(url.pathname).toBe("/api/contact-export/users")
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      after_id: "4",
+      until_id: "99",
+      limit: "2",
+    })
+    expect(page.invalidCount).toBe(1)
+    expect(page.nextCursor).toBe("6")
+    expect(page.hasMore).toBe(true)
+    expect(page.contacts).toHaveLength(1)
+    expect(page.contacts[0]).toMatchObject({
+      id: "5",
+      platformUserId: "123",
+      gender: "male",
+      timezoneOffsetHours: 7,
+      location: { latitude: 10.8, longitude: 106.7 },
+      tags: [{ id: "4", name: "VIP" }],
+      customFields: [
+        { id: "9", value: "hello" },
+        { id: "10", value: true },
+      ],
+    })
+  })
+
+  test("omits absent bounds and caps the page size", async () => {
+    const fetchMock = stubFetch(() =>
+      jsonResponse({ data: { items: [], next_cursor: null, has_more: false } }),
+    )
+
+    const page = await listAhachatContacts(
+      { token: TOKEN },
+      { afterId: null, untilId: null, limit: 10_000 },
+    )
+
+    const url = new URL((fetchMock.mock.calls[0]?.[0] as Request).url)
+    expect(Object.fromEntries(url.searchParams)).toEqual({ limit: "500" })
+    expect(page).toEqual({
+      contacts: [],
+      invalidCount: 0,
+      nextCursor: null,
+      hasMore: false,
+    })
+  })
+
+  test("refuses a cursor that does not move forward", async () => {
+    stubFetch(() =>
+      jsonResponse({ data: { items: [], next_cursor: "4", has_more: true } }),
+    )
+
+    const error = await captureError(
+      listAhachatContacts({ token: TOKEN }, { afterId: "4", untilId: null }),
+    )
+    expect(error.code).toBe("invalidResponse")
+  })
+
+  test("refuses a page with more rows than the page size cap", async () => {
+    stubFetch(() =>
+      jsonResponse({
+        data: {
+          items: Array.from({ length: 501 }, () => ({})),
+          next_cursor: null,
+          has_more: false,
+        },
+      }),
+    )
+
+    const error = await captureError(
+      listAhachatContacts({ token: TOKEN }, { afterId: null, untilId: null }),
+    )
+    expect(error.code).toBe("invalidResponse")
+  })
+})

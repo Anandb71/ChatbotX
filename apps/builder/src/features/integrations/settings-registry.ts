@@ -6,7 +6,14 @@ import {
   SiPaypal,
   SiStripe,
 } from "@icons-pack/react-simple-icons"
-import { BotIcon, CodeIcon, MailIcon, PlugIcon, TableIcon } from "lucide-react"
+import {
+  BotIcon,
+  CodeIcon,
+  MailIcon,
+  PlugIcon,
+  TableIcon,
+  UsersIcon,
+} from "lucide-react"
 import type { ComponentType } from "react"
 
 /**
@@ -73,4 +80,5 @@ export const INTEGRATION_SETTINGS_REGISTRY: readonly IntegrationSettingsEntry[] 
     { slug: "drip", titleKey: "drip.title", icon: MailIcon },
     { slug: "sendgrid", titleKey: "sendGrid.title", icon: MailIcon },
     { slug: "klaviyo", titleKey: "klaviyo.title", icon: MailIcon },
+    { slug: "ahachat", titleKey: "ahachat.title", icon: UsersIcon },
   ]

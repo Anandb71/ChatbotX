@@ -307,10 +307,16 @@ an endpoint's scope.
   `refresh-profile.ts`, `messages.ts`), some in their own owning feature's
   `api/public.ts` (`contact-notes`, `contact-sequences`, `contact-inboxes`,
   `contact-filter`, `import`) that `features/contacts/api/public.ts`
-  composes in alongside its own submodules, and `contact-scan` — the one
-  submodule composed directly into `apps/builder/src/routers/public.ts`
-  under its own `contactScans` top-level key instead of through
-  `features/contacts/api/public.ts`. Every one of them other than
+  composes in alongside its own submodules, and `contact-scan` and
+  `contact-sync` — the two submodules composed directly into
+  `apps/builder/src/routers/public.ts` under their own `contactScans` and
+  `contactSyncs` top-level keys instead of through
+  `features/contacts/api/public.ts`. `contactSyncs.*`
+  (`/v1/contact-syncs*`: sources, schema, mappings, create, get, list,
+  availability, cancel) imports from a connected source such as AhaChat; the
+  source itself is connected through `POST /v1/connections`
+  (`provider: "ahachat"`), which follows that API's own scope rules. Every
+  one of them other than
   `messages.ts` calls `workspaceTokenAuthAPIForScope("contacts")` exactly
   once at import. `messages.ts` is the one exception: sending/reading
   messages, auto-replies, and flows for a contact are conversation/automation

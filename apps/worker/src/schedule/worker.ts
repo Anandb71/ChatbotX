@@ -65,6 +65,7 @@ import { scanAiHandoverBulkRuns } from "./handlers/scan-ai-handover-bulk-runs"
 import { scanAppointmentReminders } from "./handlers/scan-appointment-reminders"
 import { scanCoexistRuns } from "./handlers/scan-coexist-runs"
 import { scanContactScans } from "./handlers/scan-contact-scans"
+import { scanContactSyncRuns } from "./handlers/scan-contact-sync-runs"
 import { scanSmartDelay } from "./handlers/scan-smart-delay"
 import { sweepStaleWhatsappCalls } from "./handlers/sweep-stale-whatsapp-calls"
 import { syncUserQuota } from "./handlers/sync-user-quota"
@@ -205,6 +206,10 @@ async function startScheduleWorker() {
 
             case ScheduleJobData.scanAiHandoverBulkRuns:
               await scanAiHandoverBulkRuns()
+              return
+
+            case ScheduleJobData.scanContactSyncRuns:
+              await scanContactSyncRuns()
               return
 
             case ScheduleJobData.reconcileMetaCatalogSyncs:

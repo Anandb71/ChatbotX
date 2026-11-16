@@ -22,6 +22,7 @@ import {
   ListIcon,
   MessageCirclePlusIcon,
   OctagonXIcon,
+  RefreshCwIcon,
   SaveIcon,
   SaveOffIcon,
   TagIcon,
@@ -31,6 +32,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
+import { ContactSyncDialog } from "@/features/contact-sync/components/contact-sync-dialog"
 import { useInboxList } from "@/features/inboxes/provider/inbox-hook"
 import ArchiveConversationDialog from "../conversations/components/archive-conversation"
 import AssignConversationDialog from "../conversations/components/assign-conversation-dialog"
@@ -207,6 +209,19 @@ export function ContactListAction({
                   }
                 />
               )}
+
+              <ContactSyncDialog
+                trigger={
+                  <DropdownMenuItem
+                    closeOnClick={false}
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <RefreshCwIcon />
+                    {t("contactSync.menu")}
+                  </DropdownMenuItem>
+                }
+                workspaceId={workspaceId}
+              />
             </DropdownMenuSubContent>
           </DropdownMenuPortal>
         </DropdownMenuSub>

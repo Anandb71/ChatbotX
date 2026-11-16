@@ -825,6 +825,27 @@ chatbotx contact-scans cancel --inboxId <inboxId>    # Cancel running Automatic 
 
 ---
 
+### `contact-syncs`
+
+Import contacts (with tags and custom fields) from an external source such as
+an AhaChat page connected with `chatbotx connections create --provider ahachat`.
+Nothing imported runs a trigger, flow or webhook; one sync may run per
+workspace, once every 4 hours.
+
+```bash
+chatbotx contact-syncs sources                                   # Sources and the inboxes they import into [--provider]
+chatbotx contact-syncs sources-schema --connectionId <id>        # Source tags/fields and their mappings
+chatbotx contact-syncs sources-mappings --connectionId <id> --tags '[{"externalId":"12","target":{"tagName":"VIP"}}]'
+                                                                 # [--fields '[{"externalId":"7","target":{"customFieldId":"..."}}]']
+chatbotx contact-syncs availability                              # canSync / blockedReason / nextSyncAt
+chatbotx contact-syncs create --sources '[{"connectionId":"<id>"}]'  # [--syncTags --syncCustomFields --overwriteExisting]
+chatbotx contact-syncs list                                      # [--page --perPage]
+chatbotx contact-syncs get --runId <runId>                       # Run status with per-source counts
+chatbotx contact-syncs cancel --runId <runId>
+```
+
+---
+
 ### `coupon-topics` / `coupons`
 
 ```bash

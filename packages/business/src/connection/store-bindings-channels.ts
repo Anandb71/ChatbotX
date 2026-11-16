@@ -1,6 +1,7 @@
 import type { IntegrationType } from "@chatbotx.io/database/partials"
 import {
   integrationActiveCampaignModel,
+  integrationAhachatModel,
   integrationApiModel,
   integrationClaudeModel,
   integrationDeepseekModel,
@@ -30,6 +31,8 @@ import {
   integrationWhatsappModel,
   integrationZaloModel,
 } from "@chatbotx.io/database/schema"
+import { ahachatAuthSchema } from "@chatbotx.io/integration-ahachat"
+import { ahachatAuthCodec } from "../integration-ahachat/auth"
 import type {
   ConnectionStoreBinding,
   makeChannelBinding,
@@ -123,6 +126,24 @@ export const buildConnectionStoreBindings = (
     tableName: "IntegrationActiveCampaign",
     integrationType: "activeCampaign",
     duplicateConstraint: "IntegrationActiveCampaign_workspaceId_key",
+  }),
+  // Several per workspace (one per AhaChat page); the same page twice is
+  // rejected by the `Connection` (workspaceId, provider, sourceId) key.
+  ahachat: makeWorkspaceIntegrationBinding({
+    table: integrationAhachatModel,
+    tableName: "IntegrationAhachat",
+    integrationType: "ahachat",
+    authColumn: "encryptedAuth",
+    authCodec: ahachatAuthCodec,
+    defaultConfigValues: (input) => {
+      const { page } = ahachatAuthSchema.parse(input.auth)
+      return {
+        sourceChannel: page.channel,
+        sourceAccountId: page.id,
+        sourceAccountName: page.name,
+        sourceAvatarUrl: page.avatarUrl,
+      }
+    },
   }),
   api: makeChannelBinding({
     table: integrationApiModel,

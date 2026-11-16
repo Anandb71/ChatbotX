@@ -130,6 +130,9 @@ vi.mock("@/features/contacts/components/remove-contact-tag-dialog", () => ({
 vi.mock("@/features/contacts/export-contact-dialog", () => ({
   ExportContactDialog: passthroughTrigger,
 }))
+vi.mock("@/features/contact-sync/components/contact-sync-dialog", () => ({
+  ContactSyncDialog: passthroughTrigger,
+}))
 
 let container: HTMLDivElement | null = null
 let root: Root | null = null

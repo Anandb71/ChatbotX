@@ -15,6 +15,7 @@ import type {
   WorkspaceModel,
 } from "@chatbotx.io/database/types"
 import { integration as integrationActiveCampaign } from "@chatbotx.io/integration-active-campaign"
+import { integration as integrationAhachat } from "@chatbotx.io/integration-ahachat"
 import { integration as integrationApi } from "@chatbotx.io/integration-api"
 import { integration as integrationChatbotx } from "@chatbotx.io/integration-chatbotx"
 import { integration as integrationDrip } from "@chatbotx.io/integration-drip"
@@ -53,6 +54,7 @@ export { IntegrationNotFoundError } from "./errors"
 
 export const integrations = {
   activeCampaign: integrationActiveCampaign,
+  ahachat: integrationAhachat,
   api: integrationApi,
   chatbotx: integrationChatbotx,
   drip: integrationDrip,
