@@ -1,6 +1,5 @@
 import {
   apiConnectConfigSchema,
-  contactSyncConnectionTeardownHook,
   integrationApiService,
   integrationWebchatService,
   webchatConnectConfigSchema,
@@ -44,6 +43,7 @@ import { integration as integrationWebchat } from "@chatbotx.io/integration-webc
 import { integration as integrationWhatsapp } from "@chatbotx.io/integration-whatsapp"
 import { integration as integrationZalo } from "@chatbotx.io/integration-zalo"
 import type { Integration, IntegrationDefinition } from "@chatbotx.io/sdk"
+import { contactSyncConnectionTeardownHook } from "./contact-sync-teardown"
 import { messengerConnectionTeardownHook } from "./messenger-teardown"
 
 type StoreBindingKey = keyof typeof CONNECTION_STORE_BINDINGS

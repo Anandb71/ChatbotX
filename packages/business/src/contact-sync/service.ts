@@ -35,7 +35,6 @@ import {
   integrationQueue,
 } from "@chatbotx.io/worker-config"
 import { BaseService } from "../base.service"
-import type { ConnectionTeardownHook } from "../connection/adapter"
 import { connectionStateService } from "../connection/state-service"
 import { CONNECTION_STORE_BINDINGS } from "../connection/store-bindings"
 import { workspaceService } from "../workspace/service"
@@ -812,24 +811,3 @@ const settleRunOutcome = (
 }
 
 export const contactSyncService = new ContactSyncService()
-
-/**
- * Disconnect hook for every contact-sync source: the live run reading from
- * the source is cancelled in the disconnect's own transaction.
- */
-export const contactSyncConnectionTeardownHook: ConnectionTeardownHook =
-  async ({ connection }) => ({
-    remoteErrors: [],
-    skipGenericRemoteTeardown: false,
-    withinTransaction: async (tx) => {
-      if (connection.integrationId) {
-        await contactSyncService.cancelForIntegration(
-          {
-            workspaceId: connection.workspaceId,
-            integrationId: connection.integrationId,
-          },
-          tx,
-        )
-      }
-    },
-  })
