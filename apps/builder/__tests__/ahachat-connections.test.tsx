@@ -218,6 +218,16 @@ vi.mock("@chatbotx.io/ui/components/ui/button", () => ({
   }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...rest}>{children}</button>
   ),
+  buttonVariants: () => "",
+}))
+vi.mock("next/link", () => ({
+  default: ({
+    children,
+    href,
+  }: {
+    children: React.ReactNode
+    href: string
+  }) => <a href={href}>{children}</a>,
 }))
 
 // A plain input bound to the form held in this module-level slot: the mocked
@@ -293,6 +303,16 @@ describe("AhachatConnections list", () => {
 
     expect(el.textContent).toContain("ahachat.empty")
     expect(el.querySelector('[data-testid="disconnect"]')).toBeNull()
+  })
+
+  test("links to the sync history of the workspace", () => {
+    const el = renderConnections([])
+
+    const link = el.querySelector('a[href$="/contacts/sync/histories"]')
+    expect(link?.textContent).toContain("contactSync.history.open")
+    expect(link?.getAttribute("href")).toBe(
+      "/space/ws-1/contacts/sync/histories",
+    )
   })
 
   test("a row shows the page name, its channel badge and no reason badge when eligible", () => {

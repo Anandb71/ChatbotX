@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { listUnavailableIntegrationSlugs } from "@/features/integrations/settings-availability"
 import { IntegrationsAccordionShell } from "./integrations-accordion-shell"
 
 type SettingIntegrationLayoutProps = {
@@ -9,9 +10,13 @@ type SettingIntegrationLayoutProps = {
 // provider's page renders as {children} inside its accordion panel. Visiting
 // /settings/integrations executes zero provider pages (index) or exactly one
 // (open panel) — previously all 18 parallel-route slots ran server-side on
-// every visit.
+// every visit. Rows the operator did not configure are left out here.
 export default function SettingIntegrationLayout({
   children,
 }: SettingIntegrationLayoutProps) {
-  return <IntegrationsAccordionShell>{children}</IntegrationsAccordionShell>
+  return (
+    <IntegrationsAccordionShell hiddenSlugs={listUnavailableIntegrationSlugs()}>
+      {children}
+    </IntegrationsAccordionShell>
+  )
 }

@@ -55,6 +55,8 @@ type ContactListActionProps = {
   table: Table<ContactTableRow>
   filter?: ExportContactsFilter
   disabled?: boolean
+  /** Whether "Sync with AhaChat" is offered (the operator configured it). */
+  showContactSync?: boolean
 }
 
 export function ContactListAction({
@@ -62,6 +64,7 @@ export function ContactListAction({
   table,
   filter,
   disabled = false,
+  showContactSync = false,
 }: ContactListActionProps) {
   const t = useTranslations()
   const invalidateContacts = useInvalidateContacts()
@@ -210,18 +213,20 @@ export function ContactListAction({
                 />
               )}
 
-              <ContactSyncDialog
-                trigger={
-                  <DropdownMenuItem
-                    closeOnClick={false}
-                    onClick={(e) => e.preventDefault()}
-                  >
-                    <RefreshCwIcon />
-                    {t("contactSync.menu")}
-                  </DropdownMenuItem>
-                }
-                workspaceId={workspaceId}
-              />
+              {showContactSync && (
+                <ContactSyncDialog
+                  trigger={
+                    <DropdownMenuItem
+                      closeOnClick={false}
+                      onClick={(e) => e.preventDefault()}
+                    >
+                      <RefreshCwIcon />
+                      {t("contactSync.menu")}
+                    </DropdownMenuItem>
+                  }
+                  workspaceId={workspaceId}
+                />
+              )}
             </DropdownMenuSubContent>
           </DropdownMenuPortal>
         </DropdownMenuSub>

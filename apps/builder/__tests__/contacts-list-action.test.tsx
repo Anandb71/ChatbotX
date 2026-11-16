@@ -137,7 +137,7 @@ vi.mock("@/features/contact-sync/components/contact-sync-dialog", () => ({
 let container: HTMLDivElement | null = null
 let root: Root | null = null
 
-function render() {
+function render(props: { showContactSync?: boolean } = {}) {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   container = document.createElement("div")
   document.body.append(container)
@@ -153,7 +153,11 @@ function render() {
   act(() => {
     root?.render(
       <QueryClientProvider client={queryClient}>
-        <ContactListAction table={table} workspaceId="ws-1" />
+        <ContactListAction
+          showContactSync={props.showContactSync}
+          table={table}
+          workspaceId="ws-1"
+        />
       </QueryClientProvider>,
     )
   })
@@ -215,5 +219,14 @@ describe("ContactListAction — Import submenu", () => {
     const el = render()
 
     expect(el.textContent).not.toContain("contactScan.menu.automaticScan")
+  })
+  test("offers Sync with AhaChat only when the deployment configured it", () => {
+    expect(render({ showContactSync: true }).textContent).toContain(
+      "contactSync.menu",
+    )
+    act(() => root?.unmount())
+    root = null
+
+    expect(render().textContent).not.toContain("contactSync.menu")
   })
 })

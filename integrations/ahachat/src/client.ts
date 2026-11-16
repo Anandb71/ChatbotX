@@ -2,7 +2,6 @@ import ky, { isTimeoutError } from "ky"
 import type { z } from "zod"
 import {
   AHACHAT_API_BASE_URL_ENV,
-  AHACHAT_CONTACT_EXPORT_PATH,
   AHACHAT_HTTP_TIMEOUT_MS,
   AHACHAT_MAX_RESPONSE_BYTES,
   AHACHAT_TOKEN_PATTERN,
@@ -36,7 +35,7 @@ const parseRetryAfter = (value: string | null): number | undefined => {
 }
 
 /**
- * The operator-configured AhaChat origin. Only an `https` URL without
+ * The operator-configured AhaChat base URL (path included). Only an `https` URL without
  * credentials is accepted, so a misconfiguration can never send the token
  * in clear text or to a URL carrying a userinfo part.
  */
@@ -55,6 +54,16 @@ export const resolveAhachatApiBaseUrl = (): string => {
     throw new AhachatApiError({ code: "notConfigured", statusCode: 503 })
   }
   return `${url.origin}${url.pathname.replace(TRAILING_SLASHES, "")}/`
+}
+
+/** Whether the AhaChat API is configured: the integration is shown and usable only then. */
+export const isAhachatConfigured = (): boolean => {
+  try {
+    resolveAhachatApiBaseUrl()
+    return true
+  } catch {
+    return false
+  }
 }
 
 const toSearchParams = (query: SearchParams | undefined) => {
@@ -154,7 +163,7 @@ const assertSuccessStatus = (response: Response): void => {
 }
 
 /**
- * One GET against the AhaChat contact-export API. Redirects are not
+ * One GET against the AhaChat contact API. Redirects are not
  * followed (the token must only reach the configured origin) and nothing
  * from the response body is ever surfaced in an error.
  */
@@ -164,7 +173,7 @@ export async function ahachatRequest<T>(
   dataSchema: z.ZodType<T>,
   query?: SearchParams,
 ): Promise<T> {
-  const url = `${resolveAhachatApiBaseUrl()}${AHACHAT_CONTACT_EXPORT_PATH}/${path}`
+  const url = `${resolveAhachatApiBaseUrl()}${path}`
   if (!AHACHAT_TOKEN_PATTERN.test(token)) {
     // Such a token can never be valid; it must not reach a header.
     throw new AhachatApiError({ code: "unauthorized", statusCode: 401 })

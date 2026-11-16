@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import { getAhachatPage, listAhachatContacts } from "../src/apis"
-import { resolveAhachatApiBaseUrl } from "../src/client"
+import { isAhachatConfigured, resolveAhachatApiBaseUrl } from "../src/client"
 import { AHACHAT_API_BASE_URL_ENV } from "../src/constants"
 import { AhachatApiError } from "../src/error"
 
@@ -36,7 +36,7 @@ const captureError = async (promise: Promise<unknown>) => {
 }
 
 beforeEach(() => {
-  vi.stubEnv(AHACHAT_API_BASE_URL_ENV, "https://chatbot.example.com/")
+  vi.stubEnv(AHACHAT_API_BASE_URL_ENV, "https://chatbot.example.com/export/")
 })
 
 afterEach(() => {
@@ -61,6 +61,24 @@ describe("resolveAhachatApiBaseUrl", () => {
 
     expect(resolveAhachatApiBaseUrl()).toBe("https://chatbot.example.com/")
   })
+
+  test("keeps the configured path, which the code never hard-codes", () => {
+    vi.stubEnv(AHACHAT_API_BASE_URL_ENV, "https://chatbot.example.com/a/b")
+
+    expect(resolveAhachatApiBaseUrl()).toBe("https://chatbot.example.com/a/b/")
+  })
+})
+
+describe("isAhachatConfigured", () => {
+  test.each([
+    ["a valid https base url", "https://chatbot.example.com/export", true],
+    ["no value", "", false],
+    ["a plain http url", "http://chatbot.example.com/export", false],
+  ])("is %s → %s", (_label, value, expected) => {
+    vi.stubEnv(AHACHAT_API_BASE_URL_ENV, value)
+
+    expect(isAhachatConfigured()).toBe(expected)
+  })
 })
 
 describe("AhaChat client", () => {
@@ -70,9 +88,7 @@ describe("AhaChat client", () => {
     const page = await getAhachatPage(TOKEN)
 
     const request = fetchMock.mock.calls[0]?.[0] as Request
-    expect(request.url).toBe(
-      "https://chatbot.example.com/api/contact-export/page",
-    )
+    expect(request.url).toBe("https://chatbot.example.com/export/page")
     expect(request.url).not.toContain(TOKEN)
     expect(request.headers.get("Authorization")).toBe(`Bearer ${TOKEN}`)
     expect(page).toEqual({
@@ -229,7 +245,7 @@ describe("listAhachatContacts", () => {
     )
 
     const url = new URL((fetchMock.mock.calls[0]?.[0] as Request).url)
-    expect(url.pathname).toBe("/api/contact-export/users")
+    expect(url.pathname).toBe("/export/users")
     expect(Object.fromEntries(url.searchParams)).toEqual({
       after_id: "4",
       until_id: "99",

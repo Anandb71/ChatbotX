@@ -12007,11 +12007,11 @@
     "title": "AhaChat",
     "connect": {
       "label": "Trang AhaChat",
-      "description": "Thêm broadcast API token của từng trang AhaChat (Cài đặt bot › Chung) để đồng bộ khách hàng về đây. Mỗi lần thêm một token."
+      "description": "Thêm broadcast API token của từng trang (AhaChat › Cài đặt bot › Chung) để đồng bộ khách hàng."
     },
     "empty": "Chưa kết nối trang AhaChat nào.",
     "addToken": "Thêm token AhaChat",
-    "tokenHint": "Dán broadcast API token của một trang AhaChat. Hệ thống sẽ tìm trang và hiển thị trong danh sách.",
+    "tokenHint": "Dán broadcast API token của một trang AhaChat.",
     "fields": {
       "token": "Broadcast API token"
     },
@@ -12024,16 +12024,16 @@
   "contactSync": {
     "menu": "Đồng bộ với AhaChat",
     "title": "Đồng bộ với AhaChat",
-    "description": "Nhập khách hàng, tag và custom field từ các trang AhaChat. Dữ liệu được nhập không chạy trigger, flow hay webhook.",
+    "description": "Nhập khách hàng, tag và custom field từ trang AhaChat. Không chạy trigger, flow hay webhook.",
     "start": "Bắt đầu đồng bộ",
-    "empty": "Hãy kết nối trang AhaChat trong phần cài đặt tích hợp trước.",
+    "empty": "Hãy kết nối trang AhaChat trong Cài đặt trước.",
     "goToSettings": "Mở cài đặt AhaChat",
-    "cooldown": "Mỗi 4 giờ chỉ được đồng bộ một lần. Lần tiếp theo từ {time}.",
+    "cooldown": "Mỗi 4 giờ đồng bộ một lần. Lần tiếp theo từ {time}.",
     "options": {
       "syncTags": "Đồng bộ tag",
       "syncCustomFields": "Đồng bộ custom field",
       "overwriteExisting": "Ghi đè dữ liệu hiện có",
-      "hint": "Khi tắt ghi đè, khách hàng đã có chỉ được bổ sung dữ liệu còn thiếu. Giá trị trống từ AhaChat không xoá dữ liệu, tag chỉ được thêm vào."
+      "hint": "Khi tắt ghi đè, chỉ bổ sung dữ liệu còn thiếu. Tag chỉ được thêm, giá trị trống không xoá dữ liệu."
     },
     "advanced": {
       "show": "Nâng cao: ánh xạ tag và custom field",
@@ -12049,16 +12049,19 @@
       "fields": "Custom field",
       "noTags": "Trang này không có tag.",
       "noFields": "Trang này không có custom field.",
-      "typeMismatch": "Field đã ánh xạ khác kiểu dữ liệu: giá trị của nó sẽ bị bỏ qua.",
+      "typeMismatch": "Khác kiểu dữ liệu: giá trị sẽ bị bỏ qua.",
       "save": "Lưu ánh xạ"
     },
     "progress": {
       "title": "Tiến độ đồng bộ",
       "source": "Nguồn",
       "counts": "{created} tạo mới · {updated} cập nhật · {skipped} bỏ qua · {failed} lỗi",
-      "skippedValues": "{count} giá trị custom field bị bỏ qua (khác kiểu hoặc không hợp lệ)",
+      "skippedValues": "{count} giá trị custom field bị bỏ qua (sai kiểu hoặc không hợp lệ)",
       "cancel": "Huỷ đồng bộ",
-      "done": "Xong"
+      "done": "Xong",
+      "requested": "Yêu cầu lúc {time}",
+      "started": "Bắt đầu {time}",
+      "finished": "kết thúc {time}"
     },
     "ineligible": {
       "channelUnsupported": "Kênh chưa được hỗ trợ",
@@ -12084,7 +12087,7 @@
     },
     "errors": {
       "alreadyRunning": "Workspace đang có một lượt đồng bộ chạy.",
-      "cooldown": "Mỗi 4 giờ chỉ được đồng bộ một lần.",
+      "cooldown": "Mỗi 4 giờ đồng bộ một lần.",
       "noSources": "Hãy chọn ít nhất một trang.",
       "tooManySources": "Quá nhiều trang trong một lượt đồng bộ.",
       "sourceNotEligible": "Có trang không thể đồng bộ.",
@@ -12092,6 +12095,20 @@
       "mappingInvalid": "Một số ánh xạ không hợp lệ.",
       "forbidden": "Bạn không có quyền đồng bộ khách hàng.",
       "generic": "Đã có lỗi xảy ra. Vui lòng thử lại."
+    },
+    "history": {
+      "open": "Lịch sử đồng bộ",
+      "title": "Lịch sử đồng bộ AhaChat",
+      "run": "Chi tiết đồng bộ",
+      "empty": "Chưa có lần đồng bộ nào.",
+      "columns": {
+        "pages": "Trang",
+        "created": "Tạo mới",
+        "updated": "Cập nhật",
+        "skipped": "Bỏ qua",
+        "failed": "Lỗi",
+        "finishedAt": "Kết thúc"
+      }
     }
   }
 }

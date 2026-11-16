@@ -1,3 +1,4 @@
+import { isAhachatConfigured } from "@chatbotx.io/integration-ahachat"
 import { getIdFromParams } from "@chatbotx.io/utils"
 import { notFound } from "next/navigation"
 import { getTranslations } from "next-intl/server"
@@ -25,6 +26,7 @@ export default async function ContactsPage(props: {
       <ContactsTable
         canViewEmailAndPhone={contactPermissionScope.canViewEmailAndPhone}
         key={workspaceId}
+        showContactSync={isAhachatConfigured()}
         workspaceId={workspaceId}
       />
     </div>

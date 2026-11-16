@@ -18,7 +18,7 @@ const captureError = async (promise: Promise<unknown>) => {
 }
 
 beforeEach(() => {
-  vi.stubEnv(AHACHAT_API_BASE_URL_ENV, "https://chatbot.example.com/")
+  vi.stubEnv(AHACHAT_API_BASE_URL_ENV, "https://chatbot.example.com/export/")
 })
 
 afterEach(() => {

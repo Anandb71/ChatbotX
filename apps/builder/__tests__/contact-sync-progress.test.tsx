@@ -6,6 +6,7 @@ import { ContactSyncProgress } from "@/features/contact-sync/components/contact-
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, params?: Record<string, unknown>) =>
     params ? `${key}:${JSON.stringify(params)}` : key,
+  useFormatter: () => ({ dateTime: (date: Date) => date.toISOString() }),
 }))
 
 const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }))
@@ -98,15 +99,30 @@ const item = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 })
 
-const setRun = (status: string, items: unknown[] = [item()]) => {
-  queryState.current = { data: { id: "run-1", status, items } }
+const setRun = (
+  status: string,
+  items: unknown[] = [item()],
+  overrides: Record<string, unknown> = {},
+) => {
+  queryState.current = {
+    data: {
+      id: "run-1",
+      status,
+      items,
+      createdAt: new Date("2030-01-01T08:00:00.000Z"),
+      startedAt: null,
+      finishedAt: null,
+      currentError: null,
+      ...overrides,
+    },
+  }
 }
 
 let container: HTMLDivElement | null = null
 let root: Root | null = null
 const onSettled = vi.fn()
 
-function renderProgress() {
+function renderProgress(withDone = true) {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   container = document.createElement("div")
   document.body.append(container)
@@ -114,7 +130,7 @@ function renderProgress() {
   act(() => {
     root?.render(
       <ContactSyncProgress
-        onSettled={onSettled}
+        onSettled={withDone ? onSettled : undefined}
         runId="run-1"
         workspaceId="ws-1"
       />,
@@ -307,5 +323,71 @@ describe("ContactSyncProgress", () => {
       buttonWithText(el, "contactSync.progress.done")?.click()
     })
     expect(onSettled).toHaveBeenCalledTimes(1)
+  })
+  test("a finished run outside the dialog has no Done button", () => {
+    setRun("succeeded")
+
+    const el = renderProgress(false)
+
+    expect(buttonWithText(el, "contactSync.progress.done")).toBeUndefined()
+    expect(buttonWithText(el, "contactSync.progress.cancel")).toBeUndefined()
+  })
+
+  test("shows when the run started (not when it was requested) and finished", () => {
+    setRun("succeeded", [item({ status: "succeeded" })], {
+      startedAt: new Date("2030-01-01T08:02:00.000Z"),
+      finishedAt: new Date("2030-01-01T08:05:00.000Z"),
+    })
+
+    const el = renderProgress()
+
+    expect(el.textContent).toContain(
+      'contactSync.progress.started:{"time":"2030-01-01T08:02:00.000Z"}',
+    )
+    expect(el.textContent).not.toContain("contactSync.progress.requested")
+    expect(el.textContent).toContain(
+      'contactSync.progress.finished:{"time":"2030-01-01T08:05:00.000Z"}',
+    )
+  })
+
+  test("a run no worker has picked up yet shows when it was requested", () => {
+    setRun("pending")
+
+    const el = renderProgress()
+
+    expect(el.textContent).toContain(
+      'contactSync.progress.requested:{"time":"2030-01-01T08:00:00.000Z"}',
+    )
+    expect(el.textContent).not.toContain("contactSync.progress.started")
+    expect(el.textContent).not.toContain("contactSync.progress.finished")
+  })
+
+  test("a live run shows only when it started", () => {
+    setRun("running", [item()], {
+      startedAt: new Date("2030-01-01T08:01:00.000Z"),
+    })
+
+    const el = renderProgress()
+
+    expect(el.textContent).toContain("contactSync.progress.started")
+    expect(el.textContent).not.toContain("contactSync.progress.finished")
+  })
+
+  test("shows the run's own error, except on a cancelled run", () => {
+    setRun("failed", [item({ status: "cancelled" })], {
+      currentError: "maxAttempts",
+    })
+    const failed = renderProgress()
+    expect(failed.textContent).toContain("contactSync.runErrors.maxAttempts")
+    act(() => root?.unmount())
+    root = null
+
+    setRun("cancelled", [item({ status: "cancelled" })], {
+      currentError: "maxAttempts",
+    })
+    const cancelled = renderProgress()
+    expect(cancelled.textContent).not.toContain(
+      "contactSync.runErrors.maxAttempts",
+    )
   })
 })

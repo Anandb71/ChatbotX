@@ -8,19 +8,25 @@ import { INTEGRATION_SETTINGS_REGISTRY } from "@/features/integrations/settings-
 
 type IntegrationsAccordionShellProps = {
   readonly children?: ReactNode
+  /** Registry slugs not configured on this deployment (decided on the server). */
+  readonly hiddenSlugs?: readonly string[]
 }
 
 /** Integrations settings list — see `RouteAccordionShell` for navigation shape. */
 export function IntegrationsAccordionShell({
   children,
+  hiddenSlugs = [],
 }: IntegrationsAccordionShellProps) {
   const t = useTranslations()
   const params = useParams<{ workspaceId: string }>()
+  const visible = INTEGRATION_SETTINGS_REGISTRY.filter(
+    (integration) => !hiddenSlugs.includes(integration.slug),
+  )
 
   return (
     <RouteAccordionShell
       basePath={`/space/${params.workspaceId}/settings/integrations`}
-      items={INTEGRATION_SETTINGS_REGISTRY.map((integration) => ({
+      items={visible.map((integration) => ({
         value: integration.slug,
         label: (
           <div className="flex items-center gap-2">

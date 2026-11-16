@@ -164,8 +164,10 @@ the workspace's `ContactInbox.sourceId` before enabling it.
 
 ## Configuration
 
-`AHACHAT_API_BASE_URL` (builder and worker): the https origin of the AhaChat
-API, set by the operator. Unset, AhaChat tokens cannot be connected or synced.
+`AHACHAT_API_BASE_URL` (builder and worker, optional): the https base URL of
+the AhaChat contact API, path included, set by the operator. Unset, the
+AhaChat integration in Settings and "Sync with AhaChat" in Contacts are hidden,
+and tokens cannot be connected or synced.
 
 ## Public API
 

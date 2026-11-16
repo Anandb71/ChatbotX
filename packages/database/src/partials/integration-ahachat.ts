@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-/** Channel of an AhaChat page, as the AhaChat contact-export API names it. */
+/** Channel of an AhaChat page, as the AhaChat contact API names it. */
 export const ahachatChannels = z.enum([
   "messenger",
   "instagram",

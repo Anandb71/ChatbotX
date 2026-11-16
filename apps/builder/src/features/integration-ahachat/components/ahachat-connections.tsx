@@ -8,7 +8,7 @@ import {
   AvatarImage,
 } from "@chatbotx.io/ui/components/ui/avatar"
 import { Badge } from "@chatbotx.io/ui/components/ui/badge"
-import { Button } from "@chatbotx.io/ui/components/ui/button"
+import { Button, buttonVariants } from "@chatbotx.io/ui/components/ui/button"
 import {
   Dialog,
   DialogClose,
@@ -22,7 +22,8 @@ import {
 import { Form } from "@chatbotx.io/ui/components/ui/form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks"
-import { Loader2Icon, PlusIcon } from "lucide-react"
+import { HistoryIcon, Loader2Icon, PlusIcon } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { useAction } from "next-safe-action/hooks"
@@ -32,6 +33,7 @@ import { SettingRow } from "@/components/setting-row"
 import { DisconnectIntegrationDialog } from "@/features/common/components/disconnect-integration-dialog"
 import { useContactSyncLabels } from "@/features/contact-sync/hooks/use-contact-sync-labels"
 import { useInvalidateContactSyncs } from "@/features/contact-sync/hooks/use-invalidate-contact-syncs"
+import { contactSyncHistoryPath } from "@/features/contact-sync/lib/routes"
 import { useWorkspaceId } from "@/hooks/routing"
 import { connectAhachatAction } from "../actions/connect.action"
 import { disconnectAhachatAction } from "../actions/disconnect.action"
@@ -43,6 +45,7 @@ export function AhachatConnections({
   sources: ContactSyncSource[]
 }) {
   const t = useTranslations()
+  const workspaceId = useWorkspaceId()
 
   return (
     <div className="flex flex-col gap-4">
@@ -50,7 +53,16 @@ export function AhachatConnections({
         description={t("ahachat.connect.description")}
         label={t("ahachat.connect.label")}
       >
-        <AddAhachatTokenDialog />
+        <div className="flex flex-wrap gap-2">
+          <AddAhachatTokenDialog />
+          <Link
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+            href={contactSyncHistoryPath(workspaceId)}
+          >
+            <HistoryIcon />
+            {t("contactSync.history.open")}
+          </Link>
+        </div>
       </SettingRow>
 
       <div className="flex flex-col gap-3">

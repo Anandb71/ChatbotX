@@ -20,7 +20,7 @@ import {
 } from "@chatbotx.io/ui/components/ui/select"
 import { Switch } from "@chatbotx.io/ui/components/ui/switch"
 import { useQuery } from "@tanstack/react-query"
-import { Loader2Icon } from "lucide-react"
+import { HistoryIcon, Loader2Icon } from "lucide-react"
 import Link from "next/link"
 import { useFormatter, useTranslations } from "next-intl"
 import { useAction } from "next-safe-action/hooks"
@@ -34,6 +34,7 @@ import { orpc } from "@/lib/orpc/query"
 import { startContactSyncAction } from "../actions/contact-sync.action"
 import { useContactSyncLabels } from "../hooks/use-contact-sync-labels"
 import { useInvalidateContactSyncs } from "../hooks/use-invalidate-contact-syncs"
+import { contactSyncHistoryPath } from "../lib/routes"
 import type { contactSyncSourceResource } from "../schema/public"
 import { ContactSyncMapping } from "./contact-sync-mapping"
 import { ContactSyncProgress } from "./contact-sync-progress"
@@ -391,6 +392,13 @@ export function ContactSyncDialog({
         <DialogHeader>
           <DialogTitle>{t("contactSync.title")}</DialogTitle>
           <DialogDescription>{t("contactSync.description")}</DialogDescription>
+          <Link
+            className="inline-flex items-center gap-1 self-start text-primary text-sm underline-offset-4 hover:underline"
+            href={contactSyncHistoryPath(workspaceId)}
+          >
+            <HistoryIcon className="size-4" />
+            {t("contactSync.history.open")}
+          </Link>
         </DialogHeader>
         {renderBody()}
       </DialogContent>

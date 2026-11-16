@@ -4,7 +4,7 @@ import { Badge } from "@chatbotx.io/ui/components/ui/badge"
 import { Button } from "@chatbotx.io/ui/components/ui/button"
 import { useQuery } from "@tanstack/react-query"
 import { Loader2Icon } from "lucide-react"
-import { useTranslations } from "next-intl"
+import { useFormatter, useTranslations } from "next-intl"
 import { useAction } from "next-safe-action/hooks"
 import { toast } from "sonner"
 import { orpc } from "@/lib/orpc/query"
@@ -21,7 +21,15 @@ const SETTLED_STATUSES = [
 
 const pollRun = pollUntilSettled<{ status: string }>(SETTLED_STATUSES)
 
-/** Live progress of one run, per source, with a cancel while it is live. */
+const DATE_TIME_FORMAT_OPTIONS = {
+  dateStyle: "medium",
+  timeStyle: "short",
+} as const
+
+/**
+ * Live progress of one run, per source, with a cancel while it is live.
+ * `onSettled` (the sync dialog) adds a Done button once the run has ended.
+ */
 export function ContactSyncProgress({
   workspaceId,
   runId,
@@ -29,9 +37,10 @@ export function ContactSyncProgress({
 }: {
   workspaceId: string
   runId: string
-  onSettled: () => void
+  onSettled?: () => void
 }) {
   const t = useTranslations()
+  const format = useFormatter()
   const labels = useContactSyncLabels()
   const runQuery = useQuery(
     orpc.contactSyncAPIs.getRun.queryOptions({
@@ -81,6 +90,25 @@ export function ContactSyncProgress({
           {labels.status(run.status)}
         </Badge>
       </div>
+      <p className="text-muted-foreground text-xs">
+        {/* A queued run has not started yet: show when it was requested. */}
+        {run.startedAt
+          ? t("contactSync.progress.started", {
+              time: format.dateTime(run.startedAt, DATE_TIME_FORMAT_OPTIONS),
+            })
+          : t("contactSync.progress.requested", {
+              time: format.dateTime(run.createdAt, DATE_TIME_FORMAT_OPTIONS),
+            })}
+        {run.finishedAt &&
+          ` · ${t("contactSync.progress.finished", {
+            time: format.dateTime(run.finishedAt, DATE_TIME_FORMAT_OPTIONS),
+          })}`}
+      </p>
+      {run.currentError && run.status !== "cancelled" && (
+        <p className="text-destructive text-sm">
+          {labels.runError(run.currentError)}
+        </p>
+      )}
 
       <ul className="flex flex-col gap-2">
         {run.items.map((item) => (
@@ -116,7 +144,7 @@ export function ContactSyncProgress({
       </ul>
 
       <div className="flex justify-end gap-2">
-        {isLive ? (
+        {isLive && (
           <Button
             disabled={cancel.isPending || run.status === "cancelling"}
             onClick={() => cancel.execute()}
@@ -125,7 +153,8 @@ export function ContactSyncProgress({
             {cancel.isPending && <Loader2Icon className="animate-spin" />}
             {t("contactSync.progress.cancel")}
           </Button>
-        ) : (
+        )}
+        {!isLive && onSettled && (
           <Button onClick={onSettled}>{t("contactSync.progress.done")}</Button>
         )}
       </div>

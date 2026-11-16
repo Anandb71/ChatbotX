@@ -404,12 +404,40 @@ describe("ContactSyncDialog states", () => {
     const el = renderDialog()
 
     expect(el.textContent).toContain("contactSync.empty")
-    const link = el.querySelector("a")
+    const link = el.querySelector('a[href$="/settings/integrations/ahachat"]')
     expect(link?.getAttribute("href")).toBe(
       "/space/ws-1/settings/integrations/ahachat",
     )
     expect(link?.textContent).toBe("contactSync.goToSettings")
     expect(startButton(el)).toBeUndefined()
+  })
+
+  test.each([
+    ["no source", () => setSources()],
+    [
+      "the cooldown",
+      () => {
+        queryStates.availability = {
+          data: {
+            canSync: false,
+            blockedReason: "cooldown",
+            nextSyncAt: new Date("2030-05-06T07:08:09.000Z"),
+            activeRunId: null,
+          },
+        }
+        queryStates.sources = { data: { data: [eligibleSource] } }
+      },
+    ],
+    ["the form", () => setSources(eligibleSource)],
+  ])("links to the sync history with %s", (_label, arrange) => {
+    arrange()
+
+    const el = renderDialog()
+
+    const link = el.querySelector(
+      'a[href="/space/ws-1/contacts/sync/histories"]',
+    )
+    expect(link?.textContent).toContain("contactSync.history.open")
   })
 
   test("during the cooldown shows the formatted next sync time instead of the form", () => {

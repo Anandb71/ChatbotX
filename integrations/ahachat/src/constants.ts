@@ -1,4 +1,8 @@
-/** Operator-set origin of the AhaChat API, e.g. `https://app.ahachat.com`. Never user input. */
+/**
+ * Operator-set base URL of the AhaChat contact API, path included; requests
+ * append the resource name (`page`, `users`, …). Never user input. Unset, the
+ * AhaChat integration is off and hidden.
+ */
 export const AHACHAT_API_BASE_URL_ENV = "AHACHAT_API_BASE_URL"
 
 /** One deadline for a whole call: connect, headers and reading the body. */
@@ -10,8 +14,6 @@ export const AHACHAT_HTTP_TIMEOUT_MS = 20_000
  * HTTP header, whose rejection message would echo the token.
  */
 export const AHACHAT_TOKEN_PATTERN = /^[\x21-\x7E]{1,512}$/
-
-export const AHACHAT_CONTACT_EXPORT_PATH = "api/contact-export"
 
 /** The most contacts AhaChat returns in one page. */
 export const AHACHAT_MAX_CONTACTS_PAGE_SIZE = 500

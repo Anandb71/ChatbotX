@@ -12007,11 +12007,11 @@
     "title": "AhaChat",
     "connect": {
       "label": "AhaChat pages",
-      "description": "Add the broadcast API token of each AhaChat page (Bot settings › General) to sync its contacts here. Add one token at a time."
+      "description": "Add each page's broadcast API token (AhaChat › Bot settings › General) to sync its contacts."
     },
     "empty": "No AhaChat page connected yet.",
     "addToken": "Add AhaChat token",
-    "tokenHint": "Paste the broadcast API token of one AhaChat page. The page is looked up and shown in the list.",
+    "tokenHint": "Paste the broadcast API token of one AhaChat page.",
     "fields": {
       "token": "Broadcast API token"
     },
@@ -12024,16 +12024,16 @@
   "contactSync": {
     "menu": "Sync with AhaChat",
     "title": "Sync with AhaChat",
-    "description": "Import contacts, tags and custom fields from your AhaChat pages. Nothing imported runs a trigger, flow or webhook.",
+    "description": "Import contacts, tags and custom fields from your AhaChat pages. Imports run no trigger, flow or webhook.",
     "start": "Start sync",
-    "empty": "Connect an AhaChat page in the integration settings first.",
+    "empty": "Connect an AhaChat page in Settings first.",
     "goToSettings": "Open AhaChat settings",
-    "cooldown": "Contacts can be synced once every 4 hours. Next sync from {time}.",
+    "cooldown": "You can sync once every 4 hours. Next sync from {time}.",
     "options": {
       "syncTags": "Sync tags",
       "syncCustomFields": "Sync custom fields",
       "overwriteExisting": "Overwrite existing data",
-      "hint": "When overwrite is off, existing contacts only get the data they are missing. Empty AhaChat values never clear data, and tags are only added."
+      "hint": "With overwrite off, only missing data is filled. Tags are only added, and empty values never clear data."
     },
     "advanced": {
       "show": "Advanced: map tags and custom fields",
@@ -12049,16 +12049,19 @@
       "fields": "Custom fields",
       "noTags": "This page has no tags.",
       "noFields": "This page has no custom fields.",
-      "typeMismatch": "The mapped field has a different type: its values will be skipped.",
+      "typeMismatch": "Different field type: its values will be skipped.",
       "save": "Save mappings"
     },
     "progress": {
       "title": "Sync progress",
       "source": "Source",
       "counts": "{created} created · {updated} updated · {skipped} skipped · {failed} failed",
-      "skippedValues": "{count} custom-field values skipped (incompatible type or invalid value)",
+      "skippedValues": "{count} custom-field values skipped (wrong type or invalid)",
       "cancel": "Cancel sync",
-      "done": "Done"
+      "done": "Done",
+      "requested": "Requested {time}",
+      "started": "Started {time}",
+      "finished": "finished {time}"
     },
     "ineligible": {
       "channelUnsupported": "Channel not supported",
@@ -12084,7 +12087,7 @@
     },
     "errors": {
       "alreadyRunning": "A sync is already running in this workspace.",
-      "cooldown": "Contacts can be synced once every 4 hours.",
+      "cooldown": "You can sync once every 4 hours.",
       "noSources": "Choose at least one page.",
       "tooManySources": "Too many pages in one sync.",
       "sourceNotEligible": "One of the pages cannot be synced.",
@@ -12092,6 +12095,20 @@
       "mappingInvalid": "Some mappings are invalid.",
       "forbidden": "You do not have permission to sync contacts.",
       "generic": "Something went wrong. Try again."
+    },
+    "history": {
+      "open": "Sync history",
+      "title": "AhaChat sync history",
+      "run": "Sync details",
+      "empty": "No sync has run yet.",
+      "columns": {
+        "pages": "Pages",
+        "created": "Created",
+        "updated": "Updated",
+        "skipped": "Skipped",
+        "failed": "Failed",
+        "finishedAt": "Finished"
+      }
     }
   }
 }
