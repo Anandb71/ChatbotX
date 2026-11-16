@@ -78,13 +78,24 @@ import type {
 
 const log = getChildLogger("contact-sync")
 
-/** BullMQ states in which a chunk job has not started and will still run. */
-const QUEUED_JOB_STATES: ReadonlySet<string> = new Set([
+/**
+ * BullMQ states of a chunk job that has not finished: it will still run, or
+ * is running and about to claim its run. A stalled active job is moved back
+ * to waiting (or failed) by BullMQ, so none of these lasts forever.
+ */
+const UNFINISHED_JOB_STATES: ReadonlySet<string> = new Set([
   "waiting",
   "delayed",
   "prioritized",
   "waiting-children",
+  "active",
 ])
+
+/**
+ * Where a chunk job stands: `waiting` (not finished), `settled` (finished
+ * or gone from the queue) or `unknown` (the queue could not be read).
+ */
+type ChunkJobState = "waiting" | "settled" | "unknown"
 
 const ADAPTER_BY_INTEGRATION_TYPE = new Map<
   IntegrationType,
@@ -451,15 +462,7 @@ class ContactSyncService extends BaseService {
     if (run.status === "cancelling") {
       return false
     }
-    try {
-      const previous = await integrationQueue.getJob(
-        buildContactSyncJobId({ runId: run.id, chunkSeq: run.chunkSeq - 1 }),
-      )
-      if (!(previous && QUEUED_JOB_STATES.has(await previous.getState()))) {
-        return false
-      }
-    } catch (err) {
-      log.warn({ err, runId: run.id }, "could not look up the queued chunk job")
+    if ((await this.chunkJobState(run.id, run.chunkSeq - 1)) !== "waiting") {
       return false
     }
     await contactSyncRunRepository.refundDispatch({
@@ -610,12 +613,33 @@ class ContactSyncService extends BaseService {
     return contactSyncRunRepository.reopenReleased({ runId })
   }
 
-  /** Ends at most one batch of exhausted runs per sweep (`CONTACT_SYNC_SWEEP_BATCH_SIZE`). */
-  markMaxAttemptsFailed() {
-    return contactSyncRunRepository.markMaxAttemptsFailed({
+  /**
+   * Ends at most one batch of exhausted runs per sweep
+   * (`CONTACT_SYNC_SWEEP_BATCH_SIZE`). Only a run whose last dispatched
+   * chunk is known to be settled ends: one still waiting in a backed-up queue
+   * (or running) is left for that chunk, and one whose queue could not be read
+   * is checked again on the next sweep, so neither costs it its last retry.
+   * A cancelled run is ended either way.
+   */
+  async markMaxAttemptsFailed(): Promise<number> {
+    const exhausted = await contactSyncRunRepository.listExhausted({
+      maxAttempts: CONTACT_SYNC_MAX_ATTEMPTS,
+      batchSize: CONTACT_SYNC_SWEEP_BATCH_SIZE,
+    })
+    const endable = await Promise.all(
+      exhausted.map(async (run) => {
+        if (run.status === "cancelling") {
+          return true
+        }
+        return (await this.chunkJobState(run.id, run.chunkSeq)) === "settled"
+      }),
+    )
+    return await contactSyncRunRepository.markMaxAttemptsFailed({
       maxAttempts: CONTACT_SYNC_MAX_ATTEMPTS,
       errorCode: "maxAttempts",
-      batchSize: CONTACT_SYNC_SWEEP_BATCH_SIZE,
+      runIds: exhausted
+        .filter((_run, index) => endable[index])
+        .map((run) => run.id),
     })
   }
 
@@ -627,6 +651,26 @@ class ContactSyncService extends BaseService {
   }
 
   // ── Internals
+
+  /** Where the run's chunk job `chunkSeq` stands in the queue. */
+  private async chunkJobState(
+    runId: string,
+    chunkSeq: number,
+  ): Promise<ChunkJobState> {
+    try {
+      const job = await integrationQueue.getJob(
+        buildContactSyncJobId({ runId, chunkSeq }),
+      )
+      if (!job) {
+        return "settled"
+      }
+      const state = await job.getState()
+      return UNFINISHED_JOB_STATES.has(state) ? "waiting" : "settled"
+    } catch (err) {
+      log.warn({ err, runId }, "could not look up the chunk job")
+      return "unknown"
+    }
+  }
 
   private async findSourceOrFail(input: {
     workspaceId: string

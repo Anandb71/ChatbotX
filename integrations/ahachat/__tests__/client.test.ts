@@ -122,6 +122,36 @@ describe("AhaChat client", () => {
     expect(error.message).not.toContain("secret body")
   })
 
+  test.each([
+    { header: "37", expected: 37 },
+    { header: " 120 ", expected: 120 },
+    { header: "0", expected: 0 },
+    { header: "12abc", expected: undefined },
+    { header: "-5", expected: undefined },
+    { header: "1.5", expected: undefined },
+    { header: "Wed, 21 Oct 2026 07:28:00 GMT", expected: undefined },
+    { header: "99999999999999999999", expected: undefined },
+    { header: null, expected: undefined },
+  ])("Retry-After $header is read as $expected seconds", async ({
+    header,
+    expected,
+  }) => {
+    stubFetch(() =>
+      jsonResponse(
+        {},
+        {
+          status: 429,
+          headers: header === null ? {} : { "Retry-After": header },
+        },
+      ),
+    )
+
+    const error = await captureError(getAhachatPage(TOKEN))
+
+    expect(error.code).toBe("rateLimited")
+    expect(error.retryAfterSeconds).toBe(expected)
+  })
+
   test("reads Retry-After on 429 and does not retry", async () => {
     const fetchMock = stubFetch(() =>
       jsonResponse({}, { status: 429, headers: { "Retry-After": "37" } }),
@@ -289,15 +319,140 @@ describe("listAhachatContacts", () => {
     })
   })
 
-  test("refuses a cursor that does not move forward", async () => {
-    stubFetch(() =>
-      jsonResponse({ data: { items: [], next_cursor: "4", has_more: true } }),
-    )
+  const pageOf = (data: {
+    items: unknown[]
+    next_cursor: string | null
+    has_more: boolean
+  }) => stubFetch(() => jsonResponse({ data }))
+
+  test.each([
+    { next: "4", label: "the same cursor" },
+    { next: "3", label: "a cursor going back" },
+  ])("refuses $label, which would read the same rows forever", async ({
+    next,
+  }) => {
+    pageOf({ items: [validContact], next_cursor: next, has_more: true })
 
     const error = await captureError(
       listAhachatContacts({ token: TOKEN }, { afterId: "4", untilId: null }),
     )
     expect(error.code).toBe("invalidResponse")
+  })
+
+  test("refuses more pages announced with no row, which could loop on empty pages", async () => {
+    pageOf({ items: [], next_cursor: "10", has_more: true })
+
+    const error = await captureError(
+      listAhachatContacts({ token: TOKEN }, { afterId: "4", untilId: "99" }),
+    )
+    expect(error.code).toBe("invalidResponse")
+  })
+
+  test.each([
+    { label: "a null cursor", data: { next_cursor: null } },
+    { label: "no cursor at all", data: {} },
+  ])("refuses more pages announced with $label", async ({ data }) => {
+    stubFetch(() =>
+      jsonResponse({
+        data: { items: [validContact], has_more: true, ...data },
+      }),
+    )
+
+    const error = await captureError(
+      listAhachatContacts({ token: TOKEN }, { afterId: "4", untilId: "99" }),
+    )
+    expect(error.code).toBe("invalidResponse")
+  })
+
+  test("refuses a next cursor past the snapshot bound", async () => {
+    pageOf({ items: [validContact], next_cursor: "100", has_more: true })
+
+    const error = await captureError(
+      listAhachatContacts({ token: TOKEN }, { afterId: "4", untilId: "99" }),
+    )
+    expect(error.code).toBe("invalidResponse")
+  })
+
+  test("accepts a next cursor equal to the snapshot bound (inclusive)", async () => {
+    pageOf({ items: [validContact], next_cursor: "99", has_more: true })
+
+    const page = await listAhachatContacts(
+      { token: TOKEN },
+      { afterId: "4", untilId: "99" },
+    )
+    expect(page.nextCursor).toBe("99")
+  })
+
+  test("compares cursors at the bigint maximum without precision loss", async () => {
+    pageOf({
+      items: [validContact],
+      next_cursor: "9223372036854775807",
+      has_more: false,
+    })
+
+    const page = await listAhachatContacts(
+      { token: TOKEN },
+      { afterId: "9223372036854775806", untilId: "9223372036854775807" },
+    )
+    expect(page.nextCursor).toBe("9223372036854775807")
+    // One past it, which a float would round to the same value, is refused.
+    pageOf({
+      items: [validContact],
+      next_cursor: "9223372036854775808",
+      has_more: true,
+    })
+    const error = await captureError(
+      listAhachatContacts(
+        { token: TOKEN },
+        { afterId: "9223372036854775806", untilId: "9223372036854775807" },
+      ),
+    )
+    expect(error.code).toBe("invalidResponse")
+  })
+
+  test("the last page may be empty", async () => {
+    pageOf({ items: [], next_cursor: null, has_more: false })
+
+    const page = await listAhachatContacts(
+      { token: TOKEN },
+      { afterId: "4", untilId: "99" },
+    )
+    expect(page.contacts).toEqual([])
+    expect(page.hasMore).toBe(false)
+  })
+
+  test.each([
+    { label: "a tag without a name", row: { tags: [{ id: "4" }] } },
+    {
+      label: "a field value that is an object",
+      row: { custom_fields: [{ id: "9", value: { nested: true } }] },
+    },
+    {
+      label: "a latitude sent as text",
+      row: { location: { latitude: "10.8", longitude: 106.7 } },
+    },
+    { label: "a fractional timezone", row: { timezone: 5.5 } },
+    { label: "an id that is not a number", row: { id: "abc" } },
+  ])("a row with $label fails alone; the rows around it import", async ({
+    row,
+  }) => {
+    pageOf({
+      items: [
+        validContact,
+        { ...validContact, id: "6", ...row },
+        { ...validContact, id: "7" },
+      ],
+      next_cursor: null,
+      has_more: false,
+    })
+
+    const page = await listAhachatContacts(
+      { token: TOKEN },
+      { afterId: null, untilId: null },
+    )
+
+    expect(page.invalidCount).toBe(1)
+    expect(page.contacts.map((contact) => contact.id)).toEqual(["5", "7"])
   })
 
   test("refuses a page with more rows than the page size cap", async () => {

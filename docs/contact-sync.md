@@ -102,11 +102,19 @@ progress, otherwise `partial`.
 - Each source call has one deadline covering the connection, the headers
   and the body.
 - Error handling (adapter `classifyError`): `rateLimited` → park with
-  `pausedUntil` and a delayed job (capped); `retryable` → the job fails and
-  the sweeper retries after the lease goes stale (max
-  `CONTACT_SYNC_MAX_ATTEMPTS`); `tokenInvalid` → the item fails and the
-  connection moves to `needs_reauth`; `fatal` → the item fails. Other items
-  continue.
+  `pausedUntil` and a delayed job (`Retry-After` in whole seconds, else one
+  minute; capped); `retryable` (timeout, network, 5xx) → the job fails and the
+  sweeper retries after the lease goes stale, at most
+  `CONTACT_SYNC_MAX_ATTEMPTS` times (an outage: 3 failed tries in a row in
+  all), then the run ends `failed`. A re-dispatch of a lost enqueue also
+  counts; a chunk still waiting in the queue (or running) does not, and is
+  never failed before it runs; nor is a run whose queue cannot be read. Recorded progress and a rate-limit pause reset the count; `tokenInvalid` → the item fails and the connection
+  moves to `needs_reauth`; `fatal` → the item fails. Other items continue.
+  An item whose pages had rows breaking the source contract ends `partial`.
+- A page must keep the paging contract: "more" comes with rows and a next
+  cursor, which moves forward without passing the snapshot bound; otherwise the
+  response is invalid (`fatal`). With tag and field sync both off, the source
+  schema is not fetched.
 - **Replay** (crash, takeover, cancel mid-chunk) is safe: contact creation,
   profile merges, tag links, field values and mappings all converge.
   Quota/usage grow only by contacts actually created. Accepted risk: a
@@ -118,7 +126,8 @@ progress, otherwise `partial`.
   released continuation never re-claimed; a chunk still queued gets its
   attempt refunded.
 - Disconnecting a source cancels the live run reading from it, inside the
-  disconnect transaction (`contactSyncConnectionTeardownHook`).
+  disconnect transaction (`contactSyncConnectionTeardownHook`, in
+  `@chatbotx.io/connections`).
 
 ## Fields
 

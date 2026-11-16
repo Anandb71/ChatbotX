@@ -570,17 +570,26 @@ describe.skipIf(!databaseUrl)("contact sync repositories on Postgres", () => {
         sql`UPDATE "ContactSyncRun" SET attempts = 5, "lastHeartbeatAt" = NOW() - INTERVAL '20 minutes', "updatedAt" = NOW() - INTERVAL '20 minutes' WHERE id = ${runId}`,
       )
 
-      // A batch bounds the sweep: an empty one ends nothing, the next one does.
+      // A batch bounds the sweep: an empty one lists nothing, the next one does.
+      expect(
+        await runs.listExhausted({ maxAttempts: 5, batchSize: 0 }, tx),
+      ).toEqual([])
+      const listed = await runs.listExhausted(
+        { maxAttempts: 5, batchSize: 100 },
+        tx,
+      )
+      expect(listed.map((run) => run.id)).toContain(runId)
+      // Nothing to end ends nothing.
       expect(
         await runs.markMaxAttemptsFailed(
-          { maxAttempts: 5, errorCode: "maxAttempts", batchSize: 0 },
+          { maxAttempts: 5, errorCode: "maxAttempts", runIds: [] },
           tx,
         ),
       ).toBe(0)
       expect((await runs.findLive(ref.workspaceId, tx))?.id).toBe(runId)
       expect(
         await runs.markMaxAttemptsFailed(
-          { maxAttempts: 5, errorCode: "maxAttempts", batchSize: 100 },
+          { maxAttempts: 5, errorCode: "maxAttempts", runIds: [runId] },
           tx,
         ),
       ).toBe(1)
@@ -603,6 +612,33 @@ describe.skipIf(!databaseUrl)("contact sync repositories on Postgres", () => {
     })
   })
 
+  test("a listed run that was claimed again before the terminal write is left alone", async () => {
+    await inRolledBackTransaction(async (tx, ref) => {
+      const { runId } = await claimAndStart(tx, ref)
+      await tx.execute(
+        sql`UPDATE "ContactSyncRun" SET attempts = 5, "lastHeartbeatAt" = NOW() - INTERVAL '20 minutes', "updatedAt" = NOW() - INTERVAL '20 minutes' WHERE id = ${runId}`,
+      )
+      const listed = await runs.listExhausted(
+        { maxAttempts: 5, batchSize: 100 },
+        tx,
+      )
+      expect(listed.map((run) => run.id)).toContain(runId)
+
+      // Its queued chunk runs meanwhile: the claim refreshes the lease.
+      expect(
+        await runs.claim({ runId, workspaceId: ref.workspaceId }, tx),
+      ).not.toBeNull()
+
+      expect(
+        await runs.markMaxAttemptsFailed(
+          { maxAttempts: 5, errorCode: "maxAttempts", runIds: [runId] },
+          tx,
+        ),
+      ).toBe(0)
+      expect((await runs.findLive(ref.workspaceId, tx))?.id).toBe(runId)
+    })
+  })
+
   test("the sweeper picks a stale pending run and burns an attempt", async () => {
     await inRolledBackTransaction(async (tx, ref) => {
       const { run } = await createRun(tx, ref)
@@ -616,6 +652,80 @@ describe.skipIf(!databaseUrl)("contact sync repositories on Postgres", () => {
         chunkSeq: 1,
         status: "pending",
       })
+    })
+  })
+
+  test("a run failing without progress gets the first try plus two retries, then ends failed", async () => {
+    // Mirrors CONTACT_SYNC_MAX_ATTEMPTS (business), which this package cannot import.
+    const maxAttempts = 2
+    await inRolledBackTransaction(async (tx, ref) => {
+      const { runId, itemId } = await claimAndStart(tx, ref)
+      // The source call failed and the job ended: the lease goes stale.
+      const failTheTry = () =>
+        tx.execute(
+          sql`UPDATE "ContactSyncRun" SET "lastHeartbeatAt" = NOW() - INTERVAL '20 minutes', "updatedAt" = NOW() - INTERVAL '20 minutes' WHERE id = ${runId}`,
+        )
+      // The sweeper re-dispatches and the retry claims the run.
+      const retry = async () => {
+        const picked = (
+          await runs.pickDue({ maxAttempts, batchSize: 100 }, tx)
+        ).find((row) => row.id === runId)
+        if (!picked) {
+          return null
+        }
+        const claimed = await runs.claim(
+          { runId, workspaceId: ref.workspaceId },
+          tx,
+        )
+        return { attempts: picked.attempts, claimToken: claimed?.claimToken }
+      }
+
+      // Try 1 failed, retry 1 imported a page: progress resets the count.
+      await failTheTry()
+      const recovered = await retry()
+      expect(recovered?.attempts).toBe(1)
+      await runs.recordItemProgress(
+        {
+          runId,
+          itemId,
+          expect: { claimToken: recovered?.claimToken ?? "" },
+          cursor: "100",
+          counters: pageCounters,
+        },
+        tx,
+      )
+      expect(
+        (
+          await runs.findForWorkspace(
+            { runId, workspaceId: ref.workspaceId },
+            tx,
+          )
+        )?.attempts,
+      ).toBe(0)
+
+      // Then an outage: the try in progress, retry 1 and retry 2 all fail.
+      await failTheTry()
+      expect((await retry())?.attempts).toBe(1)
+      await failTheTry()
+      expect((await retry())?.attempts).toBe(2)
+      await failTheTry()
+      // No third retry: the sweeper ends the run instead.
+      expect(await retry()).toBeNull()
+      const exhausted = await runs.listExhausted(
+        { maxAttempts, batchSize: 100 },
+        tx,
+      )
+      expect(exhausted.map((run) => run.id)).toContain(runId)
+      await runs.markMaxAttemptsFailed(
+        { maxAttempts, errorCode: "maxAttempts", runIds: [runId] },
+        tx,
+      )
+      expect(
+        await runs.findForWorkspace(
+          { runId, workspaceId: ref.workspaceId },
+          tx,
+        ),
+      ).toMatchObject({ status: "failed", currentError: "maxAttempts" })
     })
   })
 

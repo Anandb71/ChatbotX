@@ -259,6 +259,57 @@ describe("runContactSync", () => {
     expect(mocks.recordItemProgress).toHaveBeenCalledWith(
       expect.objectContaining({ counters: { ...counters, failed: 2 } }),
     )
+    // The source finished, but not completely.
+    expect(mocks.finishItem).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "partial", currentError: null }),
+    )
+  })
+
+  test("rows that failed on an earlier page still end the source partial", async () => {
+    mocks.findNextItem.mockReset()
+    mocks.findNextItem
+      .mockResolvedValueOnce(item({ cursor: "100", failedCount: 1 }))
+      .mockResolvedValue(null)
+
+    await runContactSync(DATA)
+
+    expect(mocks.finishItem).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "partial" }),
+    )
+  })
+
+  test("a source whose rows all imported ends succeeded", async () => {
+    await runContactSync(DATA)
+
+    expect(mocks.finishItem).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "succeeded" }),
+    )
+  })
+
+  test("with tag and field sync both off the source schema is never fetched", async () => {
+    mocks.claim.mockResolvedValue(
+      run({ syncTags: false, syncCustomFields: false }),
+    )
+
+    await runContactSync(DATA)
+
+    expect(mocks.listSchema).not.toHaveBeenCalled()
+    expect(mocks.loadMappingState).toHaveBeenCalledWith(expect.anything(), {
+      tags: [],
+      fields: [],
+    })
+    expect(mocks.importContactSyncPage).toHaveBeenCalled()
+  })
+
+  test.each([
+    { syncTags: true, syncCustomFields: false },
+    { syncTags: false, syncCustomFields: true },
+  ])("the schema is fetched when tags=$syncTags or fields=$syncCustomFields", async (flags) => {
+    mocks.claim.mockResolvedValue(run(flags))
+
+    await runContactSync(DATA)
+
+    expect(mocks.listSchema).toHaveBeenCalledTimes(1)
   })
 
   test("a rate limit parks the run and queues a delayed chunk, capped", async () => {
@@ -277,6 +328,22 @@ describe("runContactSync", () => {
       { delayMs: 30 * 60 * 1000 + 1000 },
     )
     expect(mocks.finishItem).not.toHaveBeenCalled()
+  })
+
+  test.each([
+    { retryAfterMs: null, label: "no hint" },
+    { retryAfterMs: 0, label: "a zero hint" },
+  ])("a rate limit with $label waits the default minute", async ({
+    retryAfterMs,
+  }) => {
+    mocks.listRecords.mockRejectedValue(new Error("429"))
+    mocks.classifyError.mockReturnValue({ kind: "rateLimited", retryAfterMs })
+
+    await runContactSync(DATA)
+
+    expect(mocks.enqueueChunk).toHaveBeenCalledWith(expect.anything(), {
+      delayMs: 60_000 + 1000,
+    })
   })
 
   test("an invalid token fails the source, flags the connection and moves on", async () => {
@@ -309,14 +376,25 @@ describe("runContactSync", () => {
     expect(mocks.finish).toHaveBeenCalled()
   })
 
-  test("a retryable failure lets the job fail for the sweeper to retry", async () => {
+  test("an outage lets the job fail for the sweeper to retry", async () => {
     const outage = new Error("503")
     mocks.listRecords.mockRejectedValue(outage)
     mocks.classifyError.mockReturnValue({ kind: "retryable" })
 
     await expect(runContactSync(DATA)).rejects.toBe(outage)
     expect(mocks.finishItem).not.toHaveBeenCalled()
+    expect(mocks.yieldForContinuation).not.toHaveBeenCalled()
     expect(mocks.finish).not.toHaveBeenCalled()
+  })
+
+  test("a local import error is not swallowed: the job fails for the sweeper", async () => {
+    const broken = new Error("insert failed")
+    mocks.importContactSyncPage.mockRejectedValue(broken)
+    mocks.classifyError.mockReturnValue({ kind: "retryable" })
+
+    await expect(runContactSync(DATA)).rejects.toBe(broken)
+    expect(mocks.recordItemProgress).not.toHaveBeenCalled()
+    expect(mocks.finishItem).not.toHaveBeenCalled()
   })
 
   test("a fatal failure fails only that source", async () => {

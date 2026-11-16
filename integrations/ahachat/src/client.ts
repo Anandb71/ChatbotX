@@ -26,12 +26,19 @@ const STATUS_ERROR_CODES: Record<number, AhachatErrorCode> = {
   429: "rateLimited",
 }
 
+const RETRY_AFTER_SECONDS = /^\d+$/
+
+/**
+ * `Retry-After` as whole seconds only. Anything else (an HTTP date, "12abc",
+ * a negative or huge number) is no hint, and the caller's default applies.
+ */
 const parseRetryAfter = (value: string | null): number | undefined => {
-  if (!value) {
+  const trimmed = value?.trim()
+  if (!(trimmed && RETRY_AFTER_SECONDS.test(trimmed))) {
     return
   }
-  const seconds = Number.parseInt(value, 10)
-  return Number.isSafeInteger(seconds) && seconds >= 0 ? seconds : undefined
+  const seconds = Number(trimmed)
+  return Number.isSafeInteger(seconds) ? seconds : undefined
 }
 
 /**

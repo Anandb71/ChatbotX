@@ -43,6 +43,28 @@ export const listAhachatCustomFields = (
   )
 
 /**
+ * Whether a page keeps the paging contract, so reading stays finite: "more"
+ * comes with rows and a next cursor, which moves forward without passing the
+ * snapshot bound. Each broken rule could otherwise loop or read past it.
+ */
+const isPageWithinContract = (
+  page: z.infer<typeof ahachatContactsPageSchema>,
+  input: { afterId: string | null; untilId: string | null },
+  nextCursor: string | null,
+): boolean => {
+  if (page.has_more && (page.items.length === 0 || nextCursor === null)) {
+    return false
+  }
+  if (nextCursor === null) {
+    return true
+  }
+  if (input.afterId !== null && BigInt(nextCursor) <= BigInt(input.afterId)) {
+    return false
+  }
+  return input.untilId === null || BigInt(nextCursor) <= BigInt(input.untilId)
+}
+
+/**
  * One page of contacts with `afterId < id <= untilId`, in id order. A row
  * that does not match the contract is counted in `invalidCount` instead of
  * failing the whole page.
@@ -66,12 +88,7 @@ export const listAhachatContacts = async (
     },
   )
   const nextCursor = page.next_cursor ?? null
-  if (
-    nextCursor !== null &&
-    input.afterId !== null &&
-    BigInt(nextCursor) <= BigInt(input.afterId)
-  ) {
-    // A cursor that does not move forward would read the same page forever.
+  if (!isPageWithinContract(page, input, nextCursor)) {
     throw new AhachatApiError({ code: "invalidResponse", statusCode: 502 })
   }
   const contacts: AhachatContact[] = []

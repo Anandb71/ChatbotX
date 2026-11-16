@@ -8,6 +8,7 @@ import {
   CONTACT_SYNC_RUN_ERRORS,
   type ContactSyncAdapter,
   type ContactSyncErrorKind,
+  type ContactSyncSchema,
   type ContactSyncWorkerContext,
   contactSyncService,
 } from "@chatbotx.io/business"
@@ -36,6 +37,9 @@ type ChunkContext = {
   pagesRead: number
   adapter: ContactSyncAdapter
 }
+
+/** No tag or field is synced: the source's schema is never fetched. */
+const EMPTY_SCHEMA: ContactSyncSchema = { tags: [], fields: [] }
 
 /** How one source ended this chunk. */
 type ItemOutcome =
@@ -163,7 +167,8 @@ const importPages = async (input: {
     // The source had no contact when the item started: nothing to import.
     return await endItem(ctx, item, "succeeded")
   }
-  const schema = await ctx.adapter.listSchema(auth)
+  const syncsSchema = ctx.run.syncTags || ctx.run.syncCustomFields
+  const schema = syncsSchema ? await ctx.adapter.listSchema(auth) : EMPTY_SCHEMA
   let state = await loadContactSyncMappingState(
     { workspaceId: ctx.run.workspaceId, integrationId },
     schema,
@@ -229,7 +234,10 @@ const importPages = async (input: {
       skippedValueCount: item.skippedValueCount + counters.skippedValues,
     }
     if (!page.hasMore) {
-      return await endItem(ctx, item, "succeeded")
+      // Rows that broke the source's contract are counted failed: the
+      // source finished, but not completely.
+      const status = item.failedCount > 0 ? "partial" : "succeeded"
+      return await endItem(ctx, item, status)
     }
     if (!page.nextCursor) {
       // A source that says "more" without a cursor would loop forever.

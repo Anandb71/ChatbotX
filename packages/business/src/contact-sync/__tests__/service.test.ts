@@ -17,6 +17,10 @@ const mocks = vi.hoisted(() => ({
   listSchema: vi.fn(),
   loadAuth: vi.fn(),
   upsertManual: vi.fn(),
+  listExhausted: vi.fn(),
+  markMaxAttemptsFailed: vi.fn(),
+  refundDispatch: vi.fn(),
+  getJob: vi.fn(),
 }))
 
 /** `db.select().from().where().orderBy()` resolving to the connection rows. */
@@ -52,6 +56,9 @@ vi.mock("@chatbotx.io/database/repositories", () => ({
     findLiveRunIdForIntegration: mocks.findLiveRunIdForIntegration,
     listItemStatuses: mocks.listItemStatuses,
     finish: mocks.finish,
+    listExhausted: mocks.listExhausted,
+    markMaxAttemptsFailed: mocks.markMaxAttemptsFailed,
+    refundDispatch: mocks.refundDispatch,
   },
   contactSyncMappingRepository: { upsertManual: mocks.upsertManual },
 }))
@@ -77,7 +84,7 @@ vi.mock("../inbox-match", () => ({
 }))
 vi.mock("@chatbotx.io/worker-config", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@chatbotx.io/worker-config")>()),
-  integrationQueue: { add: mocks.queueAdd },
+  integrationQueue: { add: mocks.queueAdd, getJob: mocks.getJob },
 }))
 
 const { contactSyncService } = await import("../service")
@@ -371,6 +378,158 @@ describe("contactSyncService.cancelForIntegration", () => {
     })
 
     expect(mocks.cancelLive).not.toHaveBeenCalled()
+  })
+})
+
+describe("contactSyncService sweeper", () => {
+  /** The chunk job ids whose state the queue reports, by job id suffix. */
+  const queueWith = (states: Record<string, string>) => {
+    mocks.getJob.mockImplementation((jobId: string) => {
+      const entry = Object.entries(states).find(([suffix]) =>
+        jobId.endsWith(suffix),
+      )
+      const job = entry && { getState: () => Promise.resolve(entry[1]) }
+      return Promise.resolve(job)
+    })
+  }
+  const exhausted = (id: string, status = "running") => ({
+    id,
+    chunkSeq: 7,
+    status,
+  })
+
+  beforeEach(() => {
+    mocks.markMaxAttemptsFailed.mockResolvedValue(0)
+  })
+
+  test("a run whose last chunk still waits in the queue is not failed before it runs", async () => {
+    mocks.listExhausted.mockResolvedValue([
+      exhausted("waiting"),
+      exhausted("lost"),
+    ])
+    queueWith({ "waiting-chunk-7": "waiting" })
+
+    await contactSyncService.markMaxAttemptsFailed()
+
+    expect(mocks.listExhausted).toHaveBeenCalledWith({
+      maxAttempts: 2,
+      batchSize: 100,
+    })
+    expect(mocks.markMaxAttemptsFailed).toHaveBeenCalledWith({
+      maxAttempts: 2,
+      errorCode: "maxAttempts",
+      runIds: ["lost"],
+    })
+  })
+
+  test.each([
+    "delayed",
+    "prioritized",
+    "waiting-children",
+    "active",
+  ])("a chunk in state %s has not finished: the run waits for it", async (state) => {
+    mocks.listExhausted.mockResolvedValue([exhausted("run-1")])
+    queueWith({ "run-1-chunk-7": state })
+
+    await contactSyncService.markMaxAttemptsFailed()
+
+    expect(mocks.markMaxAttemptsFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ runIds: [] }),
+    )
+  })
+
+  test.each([
+    "completed",
+    "failed",
+  ])("a chunk that is %s is no reason to wait: the run ends", async (state) => {
+    mocks.listExhausted.mockResolvedValue([exhausted("run-1")])
+    queueWith({ "run-1-chunk-7": state })
+
+    await contactSyncService.markMaxAttemptsFailed()
+
+    expect(mocks.markMaxAttemptsFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ runIds: ["run-1"] }),
+    )
+  })
+
+  test("a cancelled run is ended even with a chunk queued", async () => {
+    mocks.listExhausted.mockResolvedValue([exhausted("run-1", "cancelling")])
+    queueWith({ "run-1-chunk-7": "waiting" })
+
+    await contactSyncService.markMaxAttemptsFailed()
+
+    expect(mocks.getJob).not.toHaveBeenCalled()
+    expect(mocks.markMaxAttemptsFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ runIds: ["run-1"] }),
+    )
+  })
+
+  test("a run whose job is gone from the queue ends", async () => {
+    mocks.listExhausted.mockResolvedValue([exhausted("run-1")])
+    queueWith({})
+
+    await contactSyncService.markMaxAttemptsFailed()
+
+    expect(mocks.markMaxAttemptsFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ runIds: ["run-1"] }),
+    )
+  })
+
+  test("a queue that cannot be read ends nothing: the next sweep checks again", async () => {
+    mocks.listExhausted.mockResolvedValue([exhausted("run-1")])
+    mocks.getJob.mockRejectedValue(new Error("redis down"))
+
+    await contactSyncService.markMaxAttemptsFailed()
+
+    expect(mocks.markMaxAttemptsFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ runIds: [] }),
+    )
+  })
+
+  test("a re-dispatch is refunded while the previous chunk is still queued", async () => {
+    queueWith({ "run-1-chunk-6": "waiting" })
+
+    const refunded = await contactSyncService.refundIfPreviousChunkQueued({
+      id: "run-1",
+      attempts: 2,
+      chunkSeq: 7,
+      status: "pending",
+    })
+
+    expect(refunded).toBe(true)
+    expect(mocks.refundDispatch).toHaveBeenCalledWith({
+      runId: "run-1",
+      attempts: 2,
+      chunkSeq: 7,
+    })
+  })
+
+  test("no refund when the queue cannot be read: the dispatch goes ahead", async () => {
+    mocks.getJob.mockRejectedValue(new Error("redis down"))
+
+    const refunded = await contactSyncService.refundIfPreviousChunkQueued({
+      id: "run-1",
+      attempts: 2,
+      chunkSeq: 7,
+      status: "pending",
+    })
+
+    expect(refunded).toBe(false)
+    expect(mocks.refundDispatch).not.toHaveBeenCalled()
+  })
+
+  test("no refund when the previous chunk is gone", async () => {
+    queueWith({})
+
+    const refunded = await contactSyncService.refundIfPreviousChunkQueued({
+      id: "run-1",
+      attempts: 2,
+      chunkSeq: 7,
+      status: "pending",
+    })
+
+    expect(refunded).toBe(false)
+    expect(mocks.refundDispatch).not.toHaveBeenCalled()
   })
 })
 

@@ -112,6 +112,17 @@ const guardedRun = (runId: string, guard: ContactSyncRunGuard) =>
     eq(contactSyncRunModel.claimToken, guard.claimToken),
   )
 
+/** Live runs retried to exhaustion that nobody touched for a full lease. */
+const exhaustedRuns = (maxAttempts: number) =>
+  and(
+    sql`${contactSyncRunModel.attempts} >= ${maxAttempts}`,
+    inArray(contactSyncRunModel.status, CONTACT_SYNC_LIVE_STATUSES),
+    pauseElapsed(),
+    sql`(${contactSyncRunModel.lastHeartbeatAt} IS NULL
+      OR ${contactSyncRunModel.lastHeartbeatAt} < NOW() - ${leaseStaleInterval()})`,
+    sql`${contactSyncRunModel.updatedAt} < NOW() - ${leaseStaleInterval()}`,
+  )
+
 /** Bumps the heartbeat of a run this claim still holds; `null` = claim lost. */
 const touchGuardedRun = async (
   runId: string,
@@ -627,32 +638,50 @@ export const contactSyncRunRepository = {
   },
 
   /**
-   * Terminalizes, at most `batchSize` per call, runs the sweeper retried to
-   * exhaustion and nobody touched for a full lease: `cancelling` ends
-   * `cancelled`, everything else `failed`. Rows are taken `FOR UPDATE SKIP
-   * LOCKED`, so a backlog drains over several sweeps in short transactions.
-   * Returns how many runs it ended.
+   * Live runs the sweeper retried to exhaustion and nobody touched for a full
+   * lease, oldest first, at most `batchSize`: candidates for
+   * `markMaxAttemptsFailed` once the caller checked none still has a chunk
+   * waiting in the queue.
+   */
+  listExhausted(
+    input: { maxAttempts: number; batchSize: number },
+    tx: DatabaseClient = db,
+  ): Promise<Pick<ContactSyncRunModel, "id" | "chunkSeq" | "status">[]> {
+    return tx
+      .select({
+        id: contactSyncRunModel.id,
+        chunkSeq: contactSyncRunModel.chunkSeq,
+        status: contactSyncRunModel.status,
+      })
+      .from(contactSyncRunModel)
+      .where(exhaustedRuns(input.maxAttempts))
+      .orderBy(contactSyncRunModel.createdAt)
+      .limit(input.batchSize)
+  },
+
+  /**
+   * Terminalizes the given runs that are still exhausted (`listExhausted`):
+   * `cancelling` ends `cancelled`, everything else `failed`. Rows are taken
+   * `FOR UPDATE SKIP LOCKED` and re-checked, so a run claimed or picked in
+   * the meantime is left alone. Returns how many runs it ended.
    */
   async markMaxAttemptsFailed(
-    input: { maxAttempts: number; errorCode: string; batchSize: number },
+    input: { maxAttempts: number; errorCode: string; runIds: string[] },
     tx: DatabaseClient = db,
   ): Promise<number> {
+    if (input.runIds.length === 0) {
+      return 0
+    }
     return await tx.transaction(async (trx) => {
       const due = await trx
         .select({ id: contactSyncRunModel.id })
         .from(contactSyncRunModel)
         .where(
           and(
-            sql`${contactSyncRunModel.attempts} >= ${input.maxAttempts}`,
-            inArray(contactSyncRunModel.status, CONTACT_SYNC_LIVE_STATUSES),
-            pauseElapsed(),
-            sql`(${contactSyncRunModel.lastHeartbeatAt} IS NULL
-              OR ${contactSyncRunModel.lastHeartbeatAt} < NOW() - ${leaseStaleInterval()})`,
-            sql`${contactSyncRunModel.updatedAt} < NOW() - ${leaseStaleInterval()}`,
+            inArray(contactSyncRunModel.id, input.runIds),
+            exhaustedRuns(input.maxAttempts),
           ),
         )
-        .orderBy(contactSyncRunModel.createdAt)
-        .limit(input.batchSize)
         .for("update", { skipLocked: true })
       const runIds = due.map((row) => row.id)
       if (runIds.length === 0) {
