@@ -22,7 +22,9 @@ export type UpsertContactSyncMappingInput = {
 /** Rows per insert: seven bind parameters each, far below Postgres' 65,535. */
 const MAPPING_WRITE_CHUNK_SIZE = 1000
 
-const MAPPING_CONFLICT_TARGET = [
+// A function, not a constant: columns are read when a query runs, never at
+// import, like every other repository (a mocked schema stays importable).
+const mappingConflictTarget = () => [
   contactSyncMappingModel.integrationId,
   contactSyncMappingModel.kind,
   contactSyncMappingModel.externalId,
@@ -112,7 +114,7 @@ export const contactSyncMappingRepository = {
         .insert(contactSyncMappingModel)
         .values(chunk)
         .onConflictDoUpdate({
-          target: MAPPING_CONFLICT_TARGET,
+          target: mappingConflictTarget(),
           set: {
             externalName: sql`excluded."externalName"`,
             tagId: sql`excluded."tagId"`,
@@ -169,7 +171,7 @@ export const contactSyncMappingRepository = {
       await tx
         .insert(contactSyncMappingModel)
         .values(chunk)
-        .onConflictDoNothing({ target: MAPPING_CONFLICT_TARGET })
+        .onConflictDoNothing({ target: mappingConflictTarget() })
     }
     const kinds = [...new Set(input.rows.map((row) => row.kind))]
     return await tx
